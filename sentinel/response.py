@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+import json
+import subprocess
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from ipaddress import ip_address
-import json
 from pathlib import Path
-import subprocess
 from typing import Any
 
 from sentinel.events import UnifiedSecurityEvent
@@ -79,7 +79,7 @@ class ResponsePlan:
         return "\n".join(lines)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ResponsePlan":
+    def from_dict(cls, data: dict[str, Any]) -> ResponsePlan:
         return cls(
             decision_id=str(data["decision_id"]),
             dry_run=bool(data.get("dry_run", True)),
@@ -88,7 +88,7 @@ class ResponsePlan:
         )
 
     @classmethod
-    def read_json(cls, path: str | Path) -> "ResponsePlan":
+    def read_json(cls, path: str | Path) -> ResponsePlan:
         return cls.from_dict(json.loads(Path(path).read_text(encoding="utf-8")))
 
     def write_json(self, path: str | Path) -> Path:
@@ -99,7 +99,9 @@ class ResponsePlan:
 
 def response_step_from_dict(data: dict[str, Any]) -> ResponseStep:
     created_at = data.get("created_at")
-    parsed_created_at = datetime.fromisoformat(created_at) if created_at else datetime.now(timezone.utc)
+    parsed_created_at = (
+        datetime.fromisoformat(created_at) if created_at else datetime.now(timezone.utc)
+    )
     return ResponseStep(
         action=str(data.get("action", "unknown")),
         target=data.get("target"),
@@ -228,7 +230,10 @@ class ForensicsCollector:
     def collect(self, decision_id: str, step: ResponseStep) -> Path:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         safe_target = self._safe_name(step.target or "unknown")
-        output = self.output_dir / f"{decision_id}_{safe_target}_{int(datetime.now(timezone.utc).timestamp())}.json"
+        output = (
+            self.output_dir
+            / f"{decision_id}_{safe_target}_{int(datetime.now(timezone.utc).timestamp())}.json"
+        )
         snapshot = {
             "decision_id": decision_id,
             "created_at": datetime.now(timezone.utc).isoformat(),
@@ -258,31 +263,51 @@ class ExecutionResult:
 
 
 class ResponseExecutor:
-    executable_actions = {"block_ip_windows_firewall", "kill_process_windows", "preserve_forensics", "quarantine_file_windows"}
+    executable_actions = {
+        "block_ip_windows_firewall",
+        "kill_process_windows",
+        "preserve_forensics",
+        "quarantine_file_windows",
+    }
 
     def __init__(self, forensics_dir: str | Path = "sentinel_data/forensics") -> None:
         self.forensics = ForensicsCollector(forensics_dir)
 
-    def execute_plan(self, plan: ResponsePlan, allow_execute: bool = False) -> list[ExecutionResult]:
-        return [self.execute_step(step, decision_id=plan.decision_id, allow_execute=allow_execute) for step in plan.steps]
+    def execute_plan(
+        self, plan: ResponsePlan, allow_execute: bool = False
+    ) -> list[ExecutionResult]:
+        return [
+            self.execute_step(step, decision_id=plan.decision_id, allow_execute=allow_execute)
+            for step in plan.steps
+        ]
 
-    def execute_step(self, step: ResponseStep, decision_id: str = "manual", allow_execute: bool = False) -> ExecutionResult:
+    def execute_step(
+        self, step: ResponseStep, decision_id: str = "manual", allow_execute: bool = False
+    ) -> ExecutionResult:
         if step.action not in self.executable_actions:
             step.status = "skipped"
-            return ExecutionResult(step.action, step.target, "skipped", "No local executor for this action.")
+            return ExecutionResult(
+                step.action, step.target, "skipped", "No local executor for this action."
+            )
         if step.requires_human and not step.approved:
             step.status = "blocked"
-            return ExecutionResult(step.action, step.target, "blocked", "Human approval is required before execution.")
+            return ExecutionResult(
+                step.action, step.target, "blocked", "Human approval is required before execution."
+            )
         if step.dry_run or not allow_execute:
             step.status = "dry_run"
             return ExecutionResult(step.action, step.target, "dry_run", step.command_preview)
         if step.action == "preserve_forensics":
             output = self.forensics.collect(decision_id, step)
             step.status = "executed"
-            return ExecutionResult(step.action, step.target, "executed", f"Wrote forensics snapshot to {output}")
+            return ExecutionResult(
+                step.action, step.target, "executed", f"Wrote forensics snapshot to {output}"
+            )
         if not step.command_args:
             step.status = "failed"
-            return ExecutionResult(step.action, step.target, "failed", "No command_args were provided.")
+            return ExecutionResult(
+                step.action, step.target, "failed", "No command_args were provided."
+            )
 
         completed = subprocess.run(step.command_args, capture_output=True, text=True, check=False)
         step.status = "executed" if completed.returncode == 0 else "failed"
@@ -320,9 +345,13 @@ class LocalResponsePlanner:
             action = recommendation.get("action", "monitor")
             rationale = str(recommendation.get("rationale") or "")
             requires_human = bool(recommendation.get("requires_human", True))
-            steps.extend(self._steps_for_action(action, rationale, requires_human, events, effective_dry_run))
+            steps.extend(
+                self._steps_for_action(action, rationale, requires_human, events, effective_dry_run)
+            )
 
-        return ResponsePlan(decision_id=decision_id, dry_run=effective_dry_run, steps=steps, warnings=warnings)
+        return ResponsePlan(
+            decision_id=decision_id, dry_run=effective_dry_run, steps=steps, warnings=warnings
+        )
 
     def _steps_for_action(
         self,
@@ -407,13 +436,21 @@ class LocalResponsePlanner:
         dry_run: bool,
         requires_human: bool,
     ) -> list[ResponseStep]:
-        targets = sorted({event.target_entity for event in events if event.target_entity and self._is_ip(event.target_entity)})
+        targets = sorted(
+            {
+                event.target_entity
+                for event in events
+                if event.target_entity and self._is_ip(event.target_entity)
+            }
+        )
         if not targets:
             targets = ["candidate_host"]
         steps = []
         for target in targets:
             if self._is_ip(target):
-                steps.append(self.firewall.build_block_step(target, dry_run, requires_human, rationale))
+                steps.append(
+                    self.firewall.build_block_step(target, dry_run, requires_human, rationale)
+                )
             else:
                 steps.append(
                     ResponseStep(
@@ -440,11 +477,14 @@ class LocalResponsePlanner:
             {
                 (str(event.raw_data.get("ProcessId")), event.entity_name)
                 for event in events
-                if event.raw_data.get("ProcessId") and str(event.raw_data.get("ProcessId")).isdigit()
+                if event.raw_data.get("ProcessId")
+                and str(event.raw_data.get("ProcessId")).isdigit()
             }
         )
         return [
-            self.processes.build_kill_step(process_id, process_name, dry_run, requires_human, rationale)
+            self.processes.build_kill_step(
+                process_id, process_name, dry_run, requires_human, rationale
+            )
             for process_id, process_name in process_targets
         ] or [
             ResponseStep(
@@ -470,7 +510,8 @@ class LocalResponsePlanner:
             {
                 str(event.raw_data.get("TargetFilename") or event.target_entity)
                 for event in events
-                if event.raw_data.get("TargetFilename") or (event.entity_type == "file" and event.target_entity)
+                if event.raw_data.get("TargetFilename")
+                or (event.entity_type == "file" and event.target_entity)
             }
         )
         return [

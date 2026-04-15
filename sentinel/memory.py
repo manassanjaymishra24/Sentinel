@@ -78,7 +78,9 @@ class SlidingContextWindow:
         while self.events and self.events[0].timestamp < cutoff:
             expired = self.events.popleft()
             key = expired.entity_id or expired.entity_name or "unknown"
-            self.by_entity[key] = [event for event in self.by_entity[key] if event.event_id != expired.event_id]
+            self.by_entity[key] = [
+                event for event in self.by_entity[key] if event.event_id != expired.event_id
+            ]
             if not self.by_entity[key]:
                 del self.by_entity[key]
 
@@ -100,13 +102,10 @@ class HypothesisStore:
     def __init__(self) -> None:
         self.current = Hypothesis()
 
-    def update(self, stage: str | None, events: list[UnifiedSecurityEvent], confidence: float) -> Hypothesis:
-        entities = sorted(
-            {
-                event.entity_id or event.entity_name or "unknown"
-                for event in events
-            }
-        )
+    def update(
+        self, stage: str | None, events: list[UnifiedSecurityEvent], confidence: float
+    ) -> Hypothesis:
+        entities = sorted({event.entity_id or event.entity_name or "unknown" for event in events})
         self.current = Hypothesis(
             suspected_attack_stage=stage,
             involved_entities=entities,
@@ -153,4 +152,3 @@ class SituationalMemory:
     def add_event(self, event: UnifiedSecurityEvent) -> None:
         self.graph.add_event(event)
         self.window.add(event)
-

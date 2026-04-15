@@ -50,10 +50,14 @@ class BehavioralBaseline:
         action_rarity = 1.0 - (profile.actions[event.action] / profile.event_count)
         target_rarity = 0.0
         if event.target_entity:
-            target_rarity = 1.0 - (profile.targets[event.target_entity] / max(1, sum(profile.targets.values())))
+            target_rarity = 1.0 - (
+                profile.targets[event.target_entity] / max(1, sum(profile.targets.values()))
+            )
         hour_rarity = 1.0 - (profile.active_hours[event.timestamp.hour] / profile.event_count)
         volume_pressure = min(0.2, log1p(profile.event_count) / 50)
-        return max(0.0, min(1.0, mean([action_rarity, target_rarity, hour_rarity]) + volume_pressure))
+        return max(
+            0.0, min(1.0, mean([action_rarity, target_rarity, hour_rarity]) + volume_pressure)
+        )
 
     def score_and_update(self, event: UnifiedSecurityEvent) -> UnifiedSecurityEvent:
         event.anomaly_score = self.score(event)
@@ -78,7 +82,10 @@ class DriftDetector:
         all_actions = set(current) | set(previous)
         current_total = max(1, sum(current.values()))
         previous_total = max(1, sum(previous.values()))
-        distance = sum(abs(current[a] / current_total - previous[a] / previous_total) for a in all_actions) / 2
+        distance = (
+            sum(abs(current[a] / current_total - previous[a] / previous_total) for a in all_actions)
+            / 2
+        )
         return distance > self.threshold
 
 
@@ -95,4 +102,3 @@ class PerceptionEngine:
         if scored.anomaly_score is not None and scored.anomaly_score > self.threshold:
             return scored
         return None
-

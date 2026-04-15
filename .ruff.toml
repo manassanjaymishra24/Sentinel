@@ -1,9 +1,8 @@
-[tool.ruff]
 target-version = "py310"
 line-length = 100
 indent-width = 4
 
-[tool.ruff.lint]
+[lint]
 select = [
     "E",     # pycodestyle errors
     "W",     # pycodestyle warnings
@@ -24,7 +23,7 @@ ignore = [
     "S101",  # Use of assert (allowed in tests)
 ]
 
-[tool.ruff.lint.per-file-ignores]
+[lint.per-file-ignores]
 "tests/*" = [
     "S101",  # assert in tests
     "S106",  # hardcoded passwords allowed in test fixtures
@@ -38,8 +37,17 @@ ignore = [
     "S101",  # assert in conftest
     "S106",  # test credentials
 ]
+"sentinel/response.py" = [
+    "S603",  # subprocess call is intentional for response execution
+]
+"sentinel/llm.py" = [
+    "S310",  # URL validation intentional (checks HTTPS at runtime)
+]
+"sentinel/storage.py" = [
+    "W291",  # Trailing whitespace in SQL is intentional
+]
 
-[tool.ruff.format]
+[format]
 quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false

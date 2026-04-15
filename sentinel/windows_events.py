@@ -76,7 +76,10 @@ $items | ConvertTo-Json -Depth 6
             check=False,
         )
         if completed.returncode != 0 and not completed.stdout.strip():
-            raise RuntimeError(completed.stderr.strip() or f"Get-WinEvent failed with exit code {completed.returncode}")
+            raise RuntimeError(
+                completed.stderr.strip()
+                or f"Get-WinEvent failed with exit code {completed.returncode}"
+            )
         return self._parse_json_output(completed.stdout)
 
     def read_events(self) -> list[UnifiedSecurityEvent]:
@@ -131,7 +134,17 @@ $items | ConvertTo-Json -Depth 6
             return 0.0
         message = str(raw.get("Message") or "").lower()
         event_id = str(raw.get("Id") or "")
-        if any(keyword in message for keyword in ("powershell", "encodedcommand", "mimikatz", "credential", "whoami", "net user")):
+        if any(
+            keyword in message
+            for keyword in (
+                "powershell",
+                "encodedcommand",
+                "mimikatz",
+                "credential",
+                "whoami",
+                "net user",
+            )
+        ):
             return 0.75
         if event_id in {"4688", "4104", "4625", "7045"}:
             return 0.65

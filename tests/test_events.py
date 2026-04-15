@@ -128,7 +128,9 @@ class EventParserTests(unittest.TestCase):
 
     def test_windows_reader_command_escapes_log_names(self):
         self.assertEqual(quote_powershell_string("Bob's Log"), "'Bob''s Log'")
-        command = WindowsEventLogReader(log_names=["System"], since_minutes=1, max_events=2).build_command()
+        command = WindowsEventLogReader(
+            log_names=["System"], since_minutes=1, max_events=2
+        ).build_command()
 
         self.assertIn("powershell", command[0])
         self.assertIn("System", command[-1])

@@ -17,12 +17,12 @@ Attributes:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import json
 import logging
 import os
 import urllib.request
+from dataclasses import dataclass
 from typing import Any, Protocol, TypedDict
 
 from sentinel.defense import PromptInjectionDefense
@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 # Type Definitions
 class TechniqueScoreDict(TypedDict):
     """Scored MITRE ATT&CK technique with evidence."""
+
     tactic: str
     technique_id: str
     technique_name: str
@@ -43,6 +44,7 @@ class TechniqueScoreDict(TypedDict):
 
 class ReasoningOutputDict(TypedDict):
     """LLM reasoning output conforming to schema."""
+
     attack_stage: str
     matched_techniques: list[TechniqueScoreDict]
     predicted_next: list[dict[str, Any]]
@@ -53,6 +55,7 @@ class ReasoningOutputDict(TypedDict):
 
 class CacheMetadata(TypedDict):
     """Cache and execution metadata for analyses."""
+
     llm_used: bool
     cache_hit: bool
     sanitization_flags: list[str]
@@ -82,10 +85,16 @@ LLM_REASONING_SCHEMA: dict[str, Any] = {
                 "required": ["tactic", "technique_id", "technique_name", "confidence", "evidence"],
             },
         },
-        "predicted_next": {"type": "array", "items": {"type": "object", "additionalProperties": True}},
+        "predicted_next": {
+            "type": "array",
+            "items": {"type": "object", "additionalProperties": True},
+        },
         "confidence_score": {"type": "number"},
         "narrative_explanation": {"type": "string"},
-        "recommended_actions": {"type": "array", "items": {"type": "object", "additionalProperties": True}},
+        "recommended_actions": {
+            "type": "array",
+            "items": {"type": "object", "additionalProperties": True},
+        },
     },
     "required": [
         "attack_stage",
@@ -101,15 +110,13 @@ LLM_REASONING_SCHEMA: dict[str, Any] = {
 class LLMProvider(Protocol):
     """Protocol for LLM reasoning providers (OpenAI, Claude, etc.)."""
 
-    def reason(
-        self, context: dict[str, Any], deterministic: ReasoningResult
-    ) -> dict[str, Any]:
+    def reason(self, context: dict[str, Any], deterministic: ReasoningResult) -> dict[str, Any]:
         """Generate LLM-based reasoning for security context.
-        
+
         Args:
             context: Sanitized security context for analysis
             deterministic: Baseline deterministic reasoning result
-            
+
         Returns:
             LLM reasoning output conforming to LLM_REASONING_SCHEMA
         """
@@ -119,7 +126,7 @@ class LLMProvider(Protocol):
 @dataclass(slots=True)
 class OpenAIResponsesProvider:
     """OpenAI responses provider for security reasoning.
-    
+
     Attributes:
         api_key: OpenAI API key for authentication
         model: Model name (default: gpt-4.1-mini)
@@ -133,9 +140,9 @@ class OpenAIResponsesProvider:
     @classmethod
     def from_env(cls) -> OpenAIResponsesProvider | None:
         """Create provider from environment variables.
-        
+
         Reads OPENAI_API_KEY and SENTINEL_OPENAI_MODEL from environment.
-        
+
         Returns:
             OpenAIResponsesProvider if API key found, None otherwise
         """
@@ -147,18 +154,16 @@ class OpenAIResponsesProvider:
         logger.info(f"Initializing OpenAI provider with model: {model}")
         return cls(api_key=api_key, model=model)
 
-    def reason(
-        self, context: dict[str, Any], deterministic: ReasoningResult
-    ) -> dict[str, Any]:
+    def reason(self, context: dict[str, Any], deterministic: ReasoningResult) -> dict[str, Any]:
         """Reason using OpenAI API.
-        
+
         Args:
             context: Sanitized security context
             deterministic: Baseline deterministic result
-            
+
         Returns:
             Structured JSON reasoning output
-            
+
         Raises:
             ValueError: If response doesn't contain valid JSON
         """
@@ -202,6 +207,8 @@ class OpenAIResponsesProvider:
             },
             method="POST",
         )
+        if not str(self.endpoint).startswith("https://"):
+            raise ValueError("LLM endpoint must use HTTPS")
         with urllib.request.urlopen(request, timeout=30) as response:
             data = json.loads(response.read().decode("utf-8"))
         return self._extract_output(data)
@@ -219,12 +226,13 @@ class OpenAIResponsesProvider:
 @dataclass(slots=True)
 class AnthropicResponsesProvider:
     """Anthropic Claude API integration for security reasoning.
-    
+
     Attributes:
         api_key: Anthropic API key for authentication
         model: Model name (default: claude-3-5-sonnet-20241022)
         endpoint: API endpoint URL
     """
+
     api_key: str
     model: str = "claude-3-5-sonnet-20241022"
     endpoint: str = "https://api.anthropic.com/v1/messages"
@@ -232,9 +240,9 @@ class AnthropicResponsesProvider:
     @classmethod
     def from_env(cls) -> AnthropicResponsesProvider | None:
         """Create provider from environment variables.
-        
+
         Reads ANTHROPIC_API_KEY and SENTINEL_ANTHROPIC_MODEL from environment.
-        
+
         Returns:
             AnthropicResponsesProvider if API key found, None otherwise
         """
@@ -248,14 +256,14 @@ class AnthropicResponsesProvider:
 
     def reason(self, context: dict[str, Any], deterministic: ReasoningResult) -> dict[str, Any]:
         """Reason using Anthropic Claude API.
-        
+
         Args:
             context: Sanitized security context for analysis
             deterministic: Baseline deterministic reasoning result
-            
+
         Returns:
             Structured JSON reasoning output matching LLM_REASONING_SCHEMA
-            
+
         Raises:
             ValueError: If response doesn't contain valid JSON
             urllib.error.URLError: If API request fails
@@ -268,7 +276,7 @@ class AnthropicResponsesProvider:
             "Your response must be valid JSON matching this schema: "
             + json.dumps(LLM_REASONING_SCHEMA)
         )
-        
+
         user_message = json.dumps(
             {
                 "task": "Review the sanitized security context and deterministic baseline. Return structured JSON.",
@@ -277,7 +285,7 @@ class AnthropicResponsesProvider:
             },
             default=str,
         )
-        
+
         payload = {
             "model": self.model,
             "max_tokens": 2048,
@@ -289,7 +297,7 @@ class AnthropicResponsesProvider:
                 }
             ],
         }
-        
+
         request = urllib.request.Request(
             self.endpoint,
             data=json.dumps(payload).encode("utf-8"),
@@ -300,6 +308,8 @@ class AnthropicResponsesProvider:
             },
             method="POST",
         )
+        if not str(self.endpoint).startswith("https://"):
+            raise ValueError("Claudiu endpoint must use HTTPS")
         with urllib.request.urlopen(request, timeout=30) as response:
             data = json.loads(response.read().decode("utf-8"))
         logger.debug("Successfully received response from Claude API")
@@ -307,20 +317,22 @@ class AnthropicResponsesProvider:
 
     def _extract_output(self, data: dict[str, Any]) -> dict[str, Any]:
         """Extract JSON output from Claude API response.
-        
+
         Claude may wrap JSON in markdown code blocks, this method extracts
         the raw JSON from various response formats.
-        
+
         Args:
             data: Raw API response dictionary
-            
+
         Returns:
             Parsed JSON output matching LLM_REASONING_SCHEMA
-            
+
         Raises:
             ValueError: If response doesn't contain valid JSON
         """
-        logger.debug(f"Extracting output from Claude response with {len(data.get('content', []))} content blocks")
+        logger.debug(
+            f"Extracting output from Claude response with {len(data.get('content', []))} content blocks"
+        )
         for content_block in data.get("content", []):
             if content_block.get("type") == "text":
                 text = content_block.get("text", "")
@@ -352,7 +364,7 @@ class MockLLMProvider:
 
 class SafetyEnvelopeReasoner:
     """Routes uncertain cases to an LLM, then validates and constrains output.
-    
+
     Implements a safety envelope pattern that uses deterministic analysis as a baseline
     and routes only uncertain cases (within confidence threshold band) to the LLM.
     Features include:
@@ -360,7 +372,7 @@ class SafetyEnvelopeReasoner:
     - Response caching by context hash for efficiency
     - Output validation and prompt injection defense
     - Multi-provider support (OpenAI, Claude, custom)
-    
+
     Attributes:
         deterministic: Baseline reasoning engine
         provider: LLM provider for enhanced reasoning
@@ -382,7 +394,7 @@ class SafetyEnvelopeReasoner:
         enable_response_cache: bool = True,
     ) -> None:
         """Initialize the Safety Envelope Reasoner.
-        
+
         Args:
             deterministic: Baseline reasoning engine (defaults to IntentReasoningEngine)
             provider: LLM provider for enhanced reasoning
@@ -400,21 +412,23 @@ class SafetyEnvelopeReasoner:
         self.tokens_used: int = 0
         self.enable_response_cache = enable_response_cache
         self.response_cache: dict[str, dict[str, Any]] = {}
-        logger.debug(f"Initialized SafetyEnvelopeReasoner: thresholds=[{lower_threshold}, {upper_threshold}], "
-                    f"budget={max_tokens_per_session}, cache_enabled={enable_response_cache}")
+        logger.debug(
+            f"Initialized SafetyEnvelopeReasoner: thresholds=[{lower_threshold}, {upper_threshold}], "
+            f"budget={max_tokens_per_session}, cache_enabled={enable_response_cache}"
+        )
 
     def analyze(self, context: dict[str, Any]) -> tuple[ReasoningResult, dict[str, Any]]:
         """Analyze security context using safety envelope pattern.
-        
+
         Process:
         1. Sanitize context for prompt injection defense
         2. Run deterministic baseline analysis
         3. If confidence is within routing band, consult LLM (if available and within budget)
         4. Validate and merge LLM output if valid
-        
+
         Args:
             context: Raw security context dictionary
-            
+
         Returns:
             Tuple of (ReasoningResult, metadata_dict) where metadata includes:
                 - llm_used: Whether LLM was consulted
@@ -436,8 +450,10 @@ class SafetyEnvelopeReasoner:
             "budget_remaining": self.max_tokens_per_session,
         }
         if not self.provider or not self._should_route(baseline.confidence_score):
-            logger.debug(f"No LLM routing needed (provider={bool(self.provider)}, "
-                        f"confidence={baseline.confidence_score:.2f})")
+            logger.debug(
+                f"No LLM routing needed (provider={bool(self.provider)}, "
+                f"confidence={baseline.confidence_score:.2f})"
+            )
             return baseline, metadata
 
         # Check cache before routing to LLM
@@ -461,40 +477,50 @@ class SafetyEnvelopeReasoner:
         if self.max_tokens_per_session is not None:
             remaining = self.max_tokens_per_session - self.tokens_used
             if estimated_tokens > remaining:
-                logger.warning(f"Token budget exceeded: needed={estimated_tokens}, remaining={remaining}")
-                metadata["validation_flags"].append(f"token_budget_exceeded:needed={estimated_tokens},remaining={remaining}")
+                logger.warning(
+                    f"Token budget exceeded: needed={estimated_tokens}, remaining={remaining}"
+                )
+                metadata["validation_flags"].append(
+                    f"token_budget_exceeded:needed={estimated_tokens},remaining={remaining}"
+                )
                 metadata["budget_remaining"] = remaining
                 return baseline, metadata
 
-        logger.info(f"Routing to {type(self.provider).__name__} (estimated_tokens={estimated_tokens})")
+        logger.info(
+            f"Routing to {type(self.provider).__name__} (estimated_tokens={estimated_tokens})"
+        )
         llm_output = self.provider.reason(sanitized, baseline)
         # Store in cache if enabled
         if cache_key:
             self.response_cache[cache_key] = llm_output
             logger.debug(f"Cached response (key={cache_key[:8]})")
-        
+
         # Account for tokens used (estimation)
         self.tokens_used += estimated_tokens
         metadata["llm_used"] = True
         metadata["tokens_used"] = estimated_tokens
-        metadata["budget_remaining"] = self.max_tokens_per_session - self.tokens_used if self.max_tokens_per_session else None
+        metadata["budget_remaining"] = (
+            self.max_tokens_per_session - self.tokens_used if self.max_tokens_per_session else None
+        )
         metadata["validation_flags"] = []
-        
+
         valid, validation_flags = self.defense.validate_output(llm_output)
         metadata["validation_flags"] = validation_flags
         if not valid:
             logger.warning(f"LLM output failed validation: {validation_flags}")
             return baseline, metadata
         merged = self._merge_if_safe(baseline, llm_output, metadata)
-        logger.debug(f"LLM output successfully merged (confidence: {baseline.confidence_score:.2f} -> {merged.confidence_score:.2f})")
+        logger.debug(
+            f"LLM output successfully merged (confidence: {baseline.confidence_score:.2f} -> {merged.confidence_score:.2f})"
+        )
         return merged, metadata
 
     def _should_route(self, confidence: float) -> bool:
         """Check if confidence score falls within LLM routing band.
-        
+
         Args:
             confidence: Raw confidence score from deterministic analysis
-            
+
         Returns:
             True if lower_threshold <= confidence <= upper_threshold
         """
@@ -502,13 +528,13 @@ class SafetyEnvelopeReasoner:
 
     def _compute_cache_key(self, context: dict[str, Any]) -> str:
         """Compute SHA256 hash of sanitized context for cache lookup.
-        
+
         Enables response deduplication for identical security contexts
         without storing sensitive context data in cache keys.
-        
+
         Args:
             context: Sanitized security context dictionary
-            
+
         Returns:
             SHA256 hexdigest of sorted JSON representation (64 chars)
         """
@@ -517,49 +543,55 @@ class SafetyEnvelopeReasoner:
 
     def _estimate_tokens(self, context: dict[str, Any], baseline: ReasoningResult) -> int:
         """Estimate tokens for LLM query using rough heuristic.
-        
+
         Uses approximation: ~4 characters per token. Includes overhead for:
         - System prompt introducing schema and constraints
         - Baseline reasoning data
         - Expected JSON response (typically 500-800 tokens for security analysis)
-        
+
         Args:
             context: Security context for analysis
             baseline: Deterministic baseline analysis result
-            
+
         Returns:
             Estimated total tokens (input + output) for this LLM query
-            
+
         Note:
             This is an approximation. Actual token usage depends on LLM encoding
             and response complexity. Used for budget tracking before API calls.
         """
-        payload_size = len(json.dumps(context, default=str)) + len(json.dumps(baseline.to_dict(), default=str))
+        payload_size = len(json.dumps(context, default=str)) + len(
+            json.dumps(baseline.to_dict(), default=str)
+        )
         # Rough estimate: 4 chars = 1 token, with overhead for system prompt
         estimated_input = (payload_size // 4) + 100
         # Estimate output: schema response ~500-800 tokens
         estimated_output = 600
         total = estimated_input + estimated_output
-        logger.debug(f"Token estimation: input≈{estimated_input}, output≈{estimated_output}, total≈{total}")
+        logger.debug(
+            f"Token estimation: input≈{estimated_input}, output≈{estimated_output}, total≈{total}"
+        )
         return total
 
-    def _merge_if_safe(self, baseline: ReasoningResult, llm_output: dict[str, Any], metadata: dict[str, Any]) -> ReasoningResult:
+    def _merge_if_safe(
+        self, baseline: ReasoningResult, llm_output: dict[str, Any], metadata: dict[str, Any]
+    ) -> ReasoningResult:
         """Safely merge LLM output into baseline result with validation.
-        
+
         Applies strict safety checks to prevent LLM hallucination or drift:
         - Verifies confidence score divergence is within acceptable range (±0.35)
         - Constrains matched techniques to those supported by baseline analysis
         - Preserves baseline if LLM removes all techniques
         - Caps confidence increase to prevent overconfidence
-        
+
         Args:
             baseline: Original deterministic analysis result
             llm_output: LLM reasoning output dictionary
             metadata: Metadata accumulator for validation flags
-            
+
         Returns:
             Modified baseline result with safe LLM enhancements applied
-            
+
         Safety Constraints:
             - Confidence change max: +0.1 (conservative increase)
             - Divergence threshold: 0.35 (prevents radical disagreement)
@@ -568,7 +600,9 @@ class SafetyEnvelopeReasoner:
         logger.debug(f"Merging LLM output: baseline_confidence={baseline.confidence_score:.2f}")
         llm_confidence = float(llm_output.get("confidence_score", 0))
         if abs(llm_confidence - baseline.confidence_score) > 0.35:
-            logger.warning(f"LLM confidence diverged too much: baseline={baseline.confidence_score:.2f}, llm={llm_confidence:.2f}")
+            logger.warning(
+                f"LLM confidence diverged too much: baseline={baseline.confidence_score:.2f}, llm={llm_confidence:.2f}"
+            )
             metadata["validation_flags"].append("llm_confidence_diverged_from_baseline")
             return baseline
         allowed_ids = {match.technique_id for match in baseline.matched_techniques}
@@ -581,7 +615,9 @@ class SafetyEnvelopeReasoner:
             logger.warning("LLM removed all baseline techniques - rejecting merge")
             metadata["validation_flags"].append("llm_removed_all_baseline_techniques")
             return baseline
-        baseline.narrative_explanation = str(llm_output.get("narrative_explanation") or baseline.narrative_explanation)
+        baseline.narrative_explanation = str(
+            llm_output.get("narrative_explanation") or baseline.narrative_explanation
+        )
         if llm_matches:
             baseline.matched_techniques = [
                 TechniqueMatch(
@@ -595,7 +631,8 @@ class SafetyEnvelopeReasoner:
             ]
             logger.debug(f"Updated techniques: {len(baseline.matched_techniques)} matches")
         old_confidence = baseline.confidence_score
-        baseline.confidence_score = round(max(baseline.confidence_score, min(llm_confidence, baseline.confidence_score + 0.1)), 3)
+        baseline.confidence_score = round(
+            max(baseline.confidence_score, min(llm_confidence, baseline.confidence_score + 0.1)), 3
+        )
         logger.debug(f"Updated confidence: {old_confidence:.2f} -> {baseline.confidence_score:.2f}")
         return baseline
-

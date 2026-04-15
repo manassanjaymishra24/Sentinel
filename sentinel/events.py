@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
 import json
 import logging
 import re
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any, Protocol
 from uuid import uuid4
 
@@ -46,8 +46,7 @@ class UnifiedSecurityEvent:
 class EventParser(Protocol):
     source_system: str
 
-    def parse(self, raw: str | dict[str, Any]) -> UnifiedSecurityEvent:
-        ...
+    def parse(self, raw: str | dict[str, Any]) -> UnifiedSecurityEvent: ...
 
 
 def _parse_timestamp(value: Any) -> datetime:
@@ -76,7 +75,13 @@ def _raw_dict(raw: str | dict[str, Any]) -> dict[str, Any]:
 
 
 def _event_id(data: dict[str, Any]) -> str:
-    return str(data.get("event_id") or data.get("EventRecordID") or data.get("RecordId") or data.get("uid") or uuid4())
+    return str(
+        data.get("event_id")
+        or data.get("EventRecordID")
+        or data.get("RecordId")
+        or data.get("uid")
+        or uuid4()
+    )
 
 
 class WindowsEventLogParser:
@@ -90,9 +95,15 @@ class WindowsEventLogParser:
             source_system=self.source_system,
             entity_type="user",
             entity_id=data.get("SubjectUserSid") or data.get("TargetUserSid"),
-            entity_name=data.get("TargetUserName") or data.get("SubjectUserName") or data.get("ProviderName"),
-            action=str(data.get("EventID") or data.get("Id") or data.get("event_code") or "windows_event"),
-            target_entity=data.get("Computer") or data.get("MachineName") or data.get("WorkstationName"),
+            entity_name=data.get("TargetUserName")
+            or data.get("SubjectUserName")
+            or data.get("ProviderName"),
+            action=str(
+                data.get("EventID") or data.get("Id") or data.get("event_code") or "windows_event"
+            ),
+            target_entity=data.get("Computer")
+            or data.get("MachineName")
+            or data.get("WorkstationName"),
             raw_data=data,
         )
 
@@ -102,12 +113,21 @@ class SysmonParser:
 
     def parse(self, raw: str | dict[str, Any]) -> UnifiedSecurityEvent:
         data = _raw_dict(raw)
-        action = str(data.get("EventID") or data.get("Id") or data.get("event_id") or "sysmon_event")
+        action = str(
+            data.get("EventID") or data.get("Id") or data.get("event_id") or "sysmon_event"
+        )
         entity_type = self._entity_type(action)
-        entity_id = data.get("ProcessGuid") or data.get("ProcessId") or data.get("SourceProcessGuid") or data.get("SourceProcessId")
+        entity_id = (
+            data.get("ProcessGuid")
+            or data.get("ProcessId")
+            or data.get("SourceProcessGuid")
+            or data.get("SourceProcessId")
+        )
         entity_name = data.get("Image") or data.get("SourceImage") or data.get("CommandLine")
         return UnifiedSecurityEvent(
-            timestamp=_parse_timestamp(data.get("UtcTime") or data.get("TimeCreated") or data.get("timestamp")),
+            timestamp=_parse_timestamp(
+                data.get("UtcTime") or data.get("TimeCreated") or data.get("timestamp")
+            ),
             event_id=_event_id(data),
             source_system=self.source_system,
             entity_type=entity_type,

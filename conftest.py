@@ -108,12 +108,11 @@ def mock_openai_client() -> MagicMock:
 
 
 @pytest.fixture
-def patch_llm_providers(
-    mock_anthropic_client: MagicMock, mock_openai_client: MagicMock
-) -> Any:
+def patch_llm_providers(mock_anthropic_client: MagicMock, mock_openai_client: MagicMock) -> Any:
     """Patch both LLM providers for all tests that need them."""
-    with patch("sentinel.llm.Anthropic", return_value=mock_anthropic_client), patch(
-        "sentinel.llm.OpenAI", return_value=mock_openai_client
+    with (
+        patch("sentinel.llm.Anthropic", return_value=mock_anthropic_client),
+        patch("sentinel.llm.OpenAI", return_value=mock_openai_client),
     ):
         yield
 
@@ -128,9 +127,7 @@ def tmp_sqlite_db(tmp_path: Any) -> str:
     Returns:
         Path to the test database file
     """
-    db_path = str(tmp_path / "test_incidents.db")
-    # Initialize empty database (IncidentStore.connect() creates schema)
-    return db_path
+    return str(tmp_path / "test_incidents.db")
 
 
 @pytest.fixture(autouse=True)

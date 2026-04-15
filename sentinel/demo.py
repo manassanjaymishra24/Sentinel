@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import json
+from collections.abc import Iterable
 from dataclasses import asdict
 from datetime import datetime, timezone
-import json
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from sentinel.audit import AuditTrail, DecisionRecord, ReportGenerator
 from sentinel.defense import PromptInjectionDefense
@@ -24,7 +25,6 @@ from sentinel.memory import SituationalMemory
 from sentinel.reasoning import IntentReasoningEngine
 from sentinel.response import LocalResponsePlanner, ResponsePlan
 from sentinel.storage import IncidentStore
-
 
 PARSERS = {
     "sysmon": SysmonParser,
@@ -98,7 +98,9 @@ def infer_parser_name(raw_events: list[dict[str, Any]]) -> str:
     return "sysmon"
 
 
-def parse_events(raw_events: Iterable[dict[str, Any]], parser_name: str, anomaly_score: float) -> list[UnifiedSecurityEvent]:
+def parse_events(
+    raw_events: Iterable[dict[str, Any]], parser_name: str, anomaly_score: float
+) -> list[UnifiedSecurityEvent]:
     parser = PARSERS[parser_name]()
     events = []
     for raw in raw_events:
@@ -120,7 +122,9 @@ def analyze_events(
 
     context = memory.context_builder.build()
     if use_llm:
-        result, llm_metadata = SafetyEnvelopeReasoner(provider=OpenAIResponsesProvider.from_env()).analyze(context)
+        result, llm_metadata = SafetyEnvelopeReasoner(
+            provider=OpenAIResponsesProvider.from_env()
+        ).analyze(context)
         flags = list(llm_metadata.get("sanitization_flags", []))
         output_flags = list(llm_metadata.get("validation_flags", []))
         valid = not output_flags
@@ -147,7 +151,9 @@ def analyze_events(
         action_taken=result.recommended_actions[0]["action"],
         confidence_score=result.confidence_score,
         llm_reasoning_trace="local deterministic reasoner; no hidden chain of thought captured",
-        human_review_required=any(action.get("requires_human") for action in result.recommended_actions),
+        human_review_required=any(
+            action.get("requires_human") for action in result.recommended_actions
+        ),
     )
     audit.append(record)
     response_plan = LocalResponsePlanner().build_plan(
@@ -161,19 +167,58 @@ def analyze_events(
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run the local Sentinel security-analysis prototype.")
-    parser.add_argument("--input", type=Path, help="Path to a JSON or JSONL log file. Uses built-in demo events when omitted.")
-    parser.add_argument("--format", choices=["auto", "json", "jsonl"], default="auto", help="Input file format.")
-    parser.add_argument("--parser", choices=["auto", *PARSERS.keys()], default="auto", help="Log parser to use.")
-    parser.add_argument("--anomaly-score", type=float, default=0.72, help="Anomaly score assigned to parsed input events.")
-    parser.add_argument("--report", type=Path, help="Optional path for writing the markdown incident report.")
-    parser.add_argument("--response-plan", type=Path, help="Optional path for writing the local response plan JSON.")
-    parser.add_argument("--incident-db", type=Path, help="Optional SQLite database path for persisting the incident.")
-    parser.add_argument("--use-llm", action="store_true", help="Use optional LLM safety-envelope reasoning for uncertain cases.")
-    parser.add_argument("--no-response-plan", action="store_true", help="Do not print the local response plan.")
-    parser.add_argument("--execute-response", action="store_true", help="Prepare non-dry-run response steps where supported.")
-    parser.add_argument("--allow-execute", action="store_true", help="Required with --execute-response to leave dry-run mode.")
-    parser.add_argument("--json-only", action="store_true", help="Print only the machine-readable reasoning JSON.")
+    parser = argparse.ArgumentParser(
+        description="Run the local Sentinel security-analysis prototype."
+    )
+    parser.add_argument(
+        "--input",
+        type=Path,
+        help="Path to a JSON or JSONL log file. Uses built-in demo events when omitted.",
+    )
+    parser.add_argument(
+        "--format", choices=["auto", "json", "jsonl"], default="auto", help="Input file format."
+    )
+    parser.add_argument(
+        "--parser", choices=["auto", *PARSERS.keys()], default="auto", help="Log parser to use."
+    )
+    parser.add_argument(
+        "--anomaly-score",
+        type=float,
+        default=0.72,
+        help="Anomaly score assigned to parsed input events.",
+    )
+    parser.add_argument(
+        "--report", type=Path, help="Optional path for writing the markdown incident report."
+    )
+    parser.add_argument(
+        "--response-plan", type=Path, help="Optional path for writing the local response plan JSON."
+    )
+    parser.add_argument(
+        "--incident-db",
+        type=Path,
+        help="Optional SQLite database path for persisting the incident.",
+    )
+    parser.add_argument(
+        "--use-llm",
+        action="store_true",
+        help="Use optional LLM safety-envelope reasoning for uncertain cases.",
+    )
+    parser.add_argument(
+        "--no-response-plan", action="store_true", help="Do not print the local response plan."
+    )
+    parser.add_argument(
+        "--execute-response",
+        action="store_true",
+        help="Prepare non-dry-run response steps where supported.",
+    )
+    parser.add_argument(
+        "--allow-execute",
+        action="store_true",
+        help="Required with --execute-response to leave dry-run mode.",
+    )
+    parser.add_argument(
+        "--json-only", action="store_true", help="Print only the machine-readable reasoning JSON."
+    )
     return parser
 
 
@@ -203,7 +248,9 @@ def main() -> None:
         ReportGenerator().write_incident_report(record, args.report)
         print(f"\nWrote incident report to {args.report}")
     if args.response_plan:
-        args.response_plan.write_text(json.dumps(response_plan.to_dict(), indent=2), encoding="utf-8")
+        args.response_plan.write_text(
+            json.dumps(response_plan.to_dict(), indent=2), encoding="utf-8"
+        )
         print(f"\nWrote response plan to {args.response_plan}")
     if args.incident_db:
         IncidentStore(args.incident_db).save_decision(record)

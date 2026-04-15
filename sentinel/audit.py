@@ -53,23 +53,36 @@ class AuditTrail:
         self.records.append(record)
 
     def pending_review(self) -> list[DecisionRecord]:
-        return [record for record in self.records if record.human_review_required and record.human_outcome is None]
+        return [
+            record
+            for record in self.records
+            if record.human_review_required and record.human_outcome is None
+        ]
 
 
 class ReportGenerator:
     def incident_markdown(self, record: DecisionRecord) -> str:
-        techniques = "\n".join(
-            f"- {item.get('technique_id')}: {item.get('technique_name')} ({item.get('tactic')})"
-            for item in record.classified_techniques
-        ) or "- None"
-        predictions = "\n".join(
-            f"- {item.get('technique_id')}: {item.get('technique_name')} probability={item.get('probability')}"
-            for item in record.predicted_next
-        ) or "- None"
-        actions = "\n".join(
-            f"- {item.get('action')} human_required={item.get('requires_human')}: {item.get('rationale')}"
-            for item in record.recommended_actions
-        ) or "- None"
+        techniques = (
+            "\n".join(
+                f"- {item.get('technique_id')}: {item.get('technique_name')} ({item.get('tactic')})"
+                for item in record.classified_techniques
+            )
+            or "- None"
+        )
+        predictions = (
+            "\n".join(
+                f"- {item.get('technique_id')}: {item.get('technique_name')} probability={item.get('probability')}"
+                for item in record.predicted_next
+            )
+            or "- None"
+        )
+        actions = (
+            "\n".join(
+                f"- {item.get('action')} human_required={item.get('requires_human')}: {item.get('rationale')}"
+                for item in record.recommended_actions
+            )
+            or "- None"
+        )
         return (
             f"# Sentinel Incident Report\n\n"
             f"- Decision ID: `{record.decision_id}`\n"
@@ -90,7 +103,9 @@ class ReportGenerator:
 
     def weekly_summary(self, records: list[DecisionRecord]) -> str:
         reviewed = sum(1 for record in records if record.human_outcome)
-        average_confidence = sum(record.confidence_score for record in records) / max(1, len(records))
+        average_confidence = sum(record.confidence_score for record in records) / max(
+            1, len(records)
+        )
         return (
             "# Sentinel Weekly Summary\n\n"
             f"- Decisions: {len(records)}\n"
@@ -112,4 +127,3 @@ class AnalystInterface:
                 record.human_outcome = outcome
                 return record
         raise KeyError(decision_id)
-

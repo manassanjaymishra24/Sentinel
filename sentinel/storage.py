@@ -12,11 +12,11 @@ enabling investigation, compliance, and machine learning feedback loops.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 import json
 import logging
-from pathlib import Path
 import sqlite3
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any, Literal, TypedDict
 
 from sentinel.audit import DecisionRecord
@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 # Type Definitions
 class EntityStatisticsDict(TypedDict):
     """Statistics summary for a security entity."""
+
     entity_key: str
     total_incidents: int
     avg_confidence: float
@@ -38,6 +39,7 @@ class EntityStatisticsDict(TypedDict):
 
 class EntityActivityDict(TypedDict):
     """Entity activity metrics for leaderboards."""
+
     entity_key: str
     incident_count: int
     avg_confidence: float
@@ -45,6 +47,7 @@ class EntityActivityDict(TypedDict):
 
 class ReputationFactorsDict(TypedDict):
     """Factors contributing to entity reputation score."""
+
     incident_frequency: float
     avg_confidence: float
     recency_weight: float
@@ -54,6 +57,7 @@ class ReputationFactorsDict(TypedDict):
 
 class ReputationResultDict(TypedDict):
     """Entity reputation assessment result."""
+
     entity_key: str
     reputation_score: float
     risk_level: Literal["clean", "low", "medium", "high"]
@@ -63,6 +67,7 @@ class ReputationResultDict(TypedDict):
 
 class IncidentRecordDict(TypedDict):
     """Minimal incident summary for queries."""
+
     decision_id: str
     timestamp: str
     entity_keys: list[str]
@@ -76,18 +81,18 @@ class IncidentRecordDict(TypedDict):
 
 class IncidentStore:
     """Persistent SQLite store for security incident records and approvals.
-    
+
     Provides ACID compliance for incident tracking, approval workflows,
     and historical analysis. Supports rich queries for threat hunting
     and reputation-based entity assessment.
-    
+
     Attributes:
         path: SQLite database file path
     """
 
     def __init__(self, path: str | Path = "sentinel_data/incidents.sqlite3") -> None:
         """Initialize incident store with SQLite backend.
-        
+
         Args:
             path: Database file path (created if doesn't exist)
         """
@@ -99,7 +104,7 @@ class IncidentStore:
 
     def _connect(self) -> sqlite3.Connection:
         """Create SQLite connection with Row factory.
-        
+
         Returns:
             sqlite3.Connection with Row factory for dict-like row access
         """
@@ -141,7 +146,7 @@ class IncidentStore:
 
     def save_decision(self, record: DecisionRecord) -> None:
         """Persist decision record to incident table.
-        
+
         Args:
             record: DecisionRecord to store (becomes incident)
         """
@@ -173,11 +178,19 @@ class IncidentStore:
                     json.dumps(record.to_dict(), default=str),
                 ),
             )
-        logger.info(f"Saved incident {record.decision_id}: entities={entity_keys}, stage={attack_stage}, confidence={record.confidence_score:.2f}")
+        logger.info(
+            f"Saved incident {record.decision_id}: entities={entity_keys}, stage={attack_stage}, confidence={record.confidence_score:.2f}"
+        )
 
-    def record_approval(self, decision_id: str, outcome: str, actor: str | None = None, details: dict[str, Any] | None = None) -> None:
+    def record_approval(
+        self,
+        decision_id: str,
+        outcome: str,
+        actor: str | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
         """Record human approval/review decision for incident.
-        
+
         Args:
             decision_id: Decision ID being reviewed
             outcome: Approval outcome (e.g., 'approved', 'false_positive', 'investigate')
@@ -199,14 +212,17 @@ class IncidentStore:
                     json.dumps(details or {}),
                 ),
             )
-            conn.execute("UPDATE incidents SET human_outcome = ? WHERE decision_id = ?", (outcome, decision_id))
+            conn.execute(
+                "UPDATE incidents SET human_outcome = ? WHERE decision_id = ?",
+                (outcome, decision_id),
+            )
 
     def recent_incidents(self, limit: int = 10) -> list[IncidentRecordDict]:
         """Get most recent incidents (newest first).
-        
+
         Args:
             limit: Maximum number of incidents to return (default: 10)
-            
+
         Returns:
             List of incident records ordered by timestamp (most recent first)
         """
@@ -221,11 +237,11 @@ class IncidentStore:
 
     def similar_incidents(self, entity_key: str, limit: int = 5) -> list[IncidentRecordDict]:
         """Get incidents for specific entity (simple substring match).
-        
+
         Args:
             entity_key: Entity identifier to match (host, user, etc.)
             limit: Maximum results (default: 5)
-            
+
         Returns:
             List of incidents for entity ordered by timestamp (most recent first)
         """
@@ -241,10 +257,10 @@ class IncidentStore:
 
     def _row_to_dict(self, row: sqlite3.Row) -> dict[str, Any]:
         """Convert SQLite Row to dictionary with JSON fields parsed.
-        
+
         Args:
             row: SQLite Row object
-            
+
         Returns:
             Dictionary with entity_keys and record_json deserialized
         """
@@ -255,19 +271,19 @@ class IncidentStore:
 
     def get_incidents_by_entity(self, entity_key: str, limit: int = 20) -> list[IncidentRecordDict]:
         """Get all incidents for a specific entity.
-        
+
         Queries the incident history by entity key to support threat hunting,
         timeline reconstruction, and reputation estimation.
-        
+
         Args:
             entity_key: Entity identifier (host, user, etc.)
             limit: Maximum incidents to return (default: 20)
-            
+
         Returns:
             List of incident records for entity, ordered by timestamp (most recent first)
         """
         logger.debug(f"Querying incidents by entity: {entity_key} (limit={limit})")
-        needle = f'"{{entity_key}}"'
+        needle = '"{entity_key}"'
         with self._connect() as conn:
             rows = conn.execute(
                 "SELECT * FROM incidents WHERE entity_keys LIKE ? ORDER BY timestamp DESC LIMIT ?",
@@ -276,15 +292,17 @@ class IncidentStore:
         logger.debug(f"Found {len(rows)} incidents for entity {entity_key}")
         return [self._row_to_dict(row) for row in rows]
 
-    def get_incidents_by_stage(self, attack_stage: str, limit: int = 20) -> list[IncidentRecordDict]:
+    def get_incidents_by_stage(
+        self, attack_stage: str, limit: int = 20
+    ) -> list[IncidentRecordDict]:
         """Get all incidents for a specific attack stage (MITRE tactic).
-        
+
         Supports tactical-level analysis and attack pattern identification.
-        
+
         Args:
             attack_stage: MITRE tactic name (e.g., 'Reconnaissance', 'Lateral Movement')
             limit: Maximum incidents to return (default: 20)
-            
+
         Returns:
             List of incidents with matching attack stage, ordered by timestamp
         """
@@ -297,15 +315,17 @@ class IncidentStore:
         logger.debug(f"Found {len(rows)} incidents for stage {attack_stage}")
         return [self._row_to_dict(row) for row in rows]
 
-    def get_incidents_by_confidence(self, min_confidence: float, limit: int = 20) -> list[IncidentRecordDict]:
+    def get_incidents_by_confidence(
+        self, min_confidence: float, limit: int = 20
+    ) -> list[IncidentRecordDict]:
         """Get incidents with confidence >= min_confidence threshold.
-        
+
         Filters incidents by decision confidence to prioritize high-confidence detections.
-        
+
         Args:
             min_confidence: Minimum confidence score (0.0-1.0 scale)
             limit: Maximum incidents to return (default: 20)
-            
+
         Returns:
             List of incidents meeting confidence threshold, sorted by confidence (highest first)
         """
@@ -320,15 +340,15 @@ class IncidentStore:
 
     def find_similar_incidents(self, decision_id: str, limit: int = 5) -> list[IncidentRecordDict]:
         """Find incidents with overlapping techniques or entities.
-        
+
         Computes overlap scores based on:
         - Entity overlap (1 point per shared entity)
         - Technique overlap (2 points per shared MITRE technique)
-        
+
         Args:
             decision_id: Reference incident ID
             limit: Maximum similar incidents to return
-            
+
         Returns:
             List of similar incidents sorted by overlap score (descending)
         """
@@ -339,18 +359,18 @@ class IncidentStore:
                 "SELECT * FROM incidents WHERE decision_id = ?",
                 (decision_id,),
             ).fetchone()
-        
+
         if not ref_row:
             logger.warning(f"Reference incident not found: {decision_id}")
             return []
-        
+
         ref_data = self._row_to_dict(ref_row)
         ref_entities = set(ref_data["entity_keys"])
         ref_techniques = {
             t.get("technique_id") for t in ref_data["record_json"].get("classified_techniques", [])
         }
         logger.debug(f"Reference: entities={ref_entities}, techniques={ref_techniques}")
-        
+
         # Find incidents with overlapping entities or techniques
         candidates = []
         with self._connect() as conn:
@@ -358,37 +378,40 @@ class IncidentStore:
                 "SELECT * FROM incidents WHERE decision_id != ? ORDER BY timestamp DESC",
                 (decision_id,),
             ).fetchall()
-        
+
         for row in all_incidents:
             incident = self._row_to_dict(row)
             incident_entities = set(incident["entity_keys"])
             incident_techniques = {
-                t.get("technique_id") for t in incident["record_json"].get("classified_techniques", [])
+                t.get("technique_id")
+                for t in incident["record_json"].get("classified_techniques", [])
             }
-            
+
             # Compute overlap score
             entity_overlap = len(ref_entities & incident_entities)
             technique_overlap = len(ref_techniques & incident_techniques)
             overlap_score = entity_overlap + (technique_overlap * 2)  # Weight techniques higher
-            
+
             if overlap_score > 0:
                 incident["overlap_score"] = overlap_score
                 candidates.append(incident)
-        
+
         # Sort by overlap score and return top matches
         candidates.sort(key=lambda x: x["overlap_score"], reverse=True)
-        logger.debug(f"Found {len(candidates[:limit])} similar incidents (top {min(len(candidates), limit)} of {len(candidates)} candidates)")
+        logger.debug(
+            f"Found {len(candidates[:limit])} similar incidents (top {min(len(candidates), limit)} of {len(candidates)} candidates)"
+        )
         return candidates[:limit]
 
     def get_entity_statistics(self, entity_key: str) -> EntityStatisticsDict:
         """Get statistics for an entity (incident count, confidence, etc.).
-        
+
         Provides aggregate statistics across all incidents for an entity,
         including review status and confidence distribution.
-        
+
         Args:
             entity_key: Entity identifier
-            
+
         Returns:
             Dictionary with keys:
                 - entity_key: The queried entity
@@ -414,11 +437,11 @@ class IncidentStore:
                 """,
                 (f"%{entity_key}%",),
             ).fetchone()
-        
+
         if not stats:
             logger.debug(f"No statistics found for entity: {entity_key}")
             return {}
-        
+
         result = {
             "entity_key": entity_key,
             "total_incidents": stats[0] or 0,
@@ -428,15 +451,17 @@ class IncidentStore:
             "reviewed_count": stats[4] or 0,
             "pending_review": (stats[0] or 0) - (stats[4] or 0),
         }
-        logger.debug(f"Entity {entity_key} stats: {result['total_incidents']} incidents, {result['reviewed_count']} reviewed")
+        logger.debug(
+            f"Entity {entity_key} stats: {result['total_incidents']} incidents, {result['reviewed_count']} reviewed"
+        )
         return result
 
     def get_top_entities(self, limit: int = 10) -> list[EntityActivityDict]:
         """Get entities with most incidents (activity leaderboard).
-        
+
         Args:
             limit: Maximum entities to return
-            
+
         Returns:
             List of entities with incident counts, sorted by activity (most active first)
         """
@@ -453,17 +478,19 @@ class IncidentStore:
                 """,
                 (limit,),
             ).fetchall()
-        
+
         results = []
         for row in rows:
             entities = json.loads(row[0])
             for entity in entities:
-                results.append({
-                    "entity_key": entity,
-                    "incident_count": row[1],
-                    "avg_confidence": round(row[2], 3) if row[2] else 0.0,
-                })
-        
+                results.append(
+                    {
+                        "entity_key": entity,
+                        "incident_count": row[1],
+                        "avg_confidence": round(row[2], 3) if row[2] else 0.0,
+                    }
+                )
+
         # Sort by incident count
         results.sort(key=lambda x: x["incident_count"], reverse=True)
         logger.debug(f"Found {len(results[:limit])} top entities")
@@ -478,7 +505,7 @@ class IncidentStore:
         """
         Compute a reputation score for an entity (0-1 scale).
         Higher = more suspicious.
-        
+
         Factors:
         - Incident frequency (normalized by days)
         - Confidence scores (higher avg = worse)
@@ -486,7 +513,7 @@ class IncidentStore:
         - Approval outcomes (false positives reduce score)
         """
         lookback_date = (datetime.now(timezone.utc) - timedelta(days=days_lookback)).isoformat()
-        
+
         with self._connect() as conn:
             rows = conn.execute(
                 """
@@ -496,7 +523,7 @@ class IncidentStore:
                 """,
                 (f"%{entity_key}%", lookback_date),
             ).fetchall()
-        
+
         if not rows:
             return {
                 "entity_key": entity_key,
@@ -505,38 +532,38 @@ class IncidentStore:
                 "incidents_in_period": 0,
                 "factors": {},
             }
-        
+
         now = datetime.now(timezone.utc)
-        
+
         # Factor 1: Incident frequency (incidents per day)
         incidents_in_period = len(rows)
         incident_frequency = incidents_in_period / max(1, days_lookback)
         freq_score = min(0.5, incident_frequency * 0.2)  # Capped at 0.5
-        
+
         # Factor 2: Average confidence in this period
         confidence_scores = [row[1] for row in rows]
         avg_confidence = sum(confidence_scores) / len(confidence_scores)
         conf_score = avg_confidence * 0.4
-        
+
         # Factor 3: Recency (give more weight to recent incidents)
         recency_scores = []
         for row in rows:
-            incident_time = datetime.fromisoformat(row[0].replace('Z', '+00:00'))
+            incident_time = datetime.fromisoformat(row[0].replace("Z", "+00:00"))
             age_days = (now - incident_time).days
             # Linear decay: 0 days old = 1.0, 30+ days old = 0.0
             recency = max(0, 1.0 - (age_days / max(1, days_lookback)))
             recency_scores.append(recency)
         avg_recency = sum(recency_scores) / len(recency_scores)
         recency_score = avg_recency * recency_weight
-        
+
         # Factor 4: False positive rate (reduce score if many false alarm outcomes)
         false_positives = sum(1 for row in rows if row[2] and "false" in str(row[2]).lower())
         false_positive_rate = false_positives / len(rows)
         fp_penalty = false_positive_rate * 0.2
-        
+
         # Compute final reputation score (0-1)
         reputation_score = min(1.0, max(0.0, freq_score + conf_score + recency_score - fp_penalty))
-        
+
         # Determine risk level
         if reputation_score < 0.2:
             risk_level = "clean"
@@ -546,7 +573,7 @@ class IncidentStore:
             risk_level = "medium"
         else:
             risk_level = "high"
-        
+
         return {
             "entity_key": entity_key,
             "reputation_score": round(reputation_score, 3),
@@ -561,17 +588,22 @@ class IncidentStore:
             },
         }
 
-    def get_entity_reputation_leaderboard(self, limit: int = 20, days_lookback: int = 30) -> list[ReputationResultDict]:
+    def get_entity_reputation_leaderboard(
+        self, limit: int = 20, days_lookback: int = 30
+    ) -> list[ReputationResultDict]:
         """Get top riskiest entities by reputation score."""
-        top_entities = self.get_top_entities(limit=limit * 2)  # Get 2x to account for some being clean
-        
+        top_entities = self.get_top_entities(
+            limit=limit * 2
+        )  # Get 2x to account for some being clean
+
         results = []
         for entity_data in top_entities:
-            rep = self.compute_entity_reputation(entity_data["entity_key"], days_lookback=days_lookback)
+            rep = self.compute_entity_reputation(
+                entity_data["entity_key"], days_lookback=days_lookback
+            )
             if rep["reputation_score"] > 0.1:  # Filter out clean entities
                 results.append(rep)
-        
+
         # Sort by reputation score (descending = riskiest first)
         results.sort(key=lambda x: x["reputation_score"], reverse=True)
         return results[:limit]
-

@@ -39,14 +39,58 @@ class Technique:
 
 
 DEFAULT_TECHNIQUES: dict[str, Technique] = {
-    "T1059": Technique("T1059", "Command and Scripting Interpreter", "Execution", ("powershell", "cmd", "bash", "sh", "script"), ("T1087", "T1105")),
-    "T1105": Technique("T1105", "Ingress Tool Transfer", "Command and Control", ("download", "curl", "wget", "transfer"), ("T1005", "T1041")),
-    "T1087": Technique("T1087", "Account Discovery", "Discovery", ("net user", "whoami", "account", "ldap"), ("T1003", "T1021")),
-    "T1003": Technique("T1003", "OS Credential Dumping", "Credential Access", ("lsass", "mimikatz", "credential", "dump"), ("T1021", "T1041")),
-    "T1021": Technique("T1021", "Remote Services", "Lateral Movement", ("rdp", "ssh", "winrm", "remote"), ("T1005", "T1486")),
-    "T1005": Technique("T1005", "Data from Local System", "Collection", ("archive", "collect", "zip", "sensitive"), ("T1041",)),
-    "T1041": Technique("T1041", "Exfiltration Over C2 Channel", "Exfiltration", ("exfil", "upload", "large transfer"), ("T1486",)),
-    "T1486": Technique("T1486", "Data Encrypted for Impact", "Impact", ("encrypt", "ransom", "shadowcopy"), ()),
+    "T1059": Technique(
+        "T1059",
+        "Command and Scripting Interpreter",
+        "Execution",
+        ("powershell", "cmd", "bash", "sh", "script"),
+        ("T1087", "T1105"),
+    ),
+    "T1105": Technique(
+        "T1105",
+        "Ingress Tool Transfer",
+        "Command and Control",
+        ("download", "curl", "wget", "transfer"),
+        ("T1005", "T1041"),
+    ),
+    "T1087": Technique(
+        "T1087",
+        "Account Discovery",
+        "Discovery",
+        ("net user", "whoami", "account", "ldap"),
+        ("T1003", "T1021"),
+    ),
+    "T1003": Technique(
+        "T1003",
+        "OS Credential Dumping",
+        "Credential Access",
+        ("lsass", "mimikatz", "credential", "dump"),
+        ("T1021", "T1041"),
+    ),
+    "T1021": Technique(
+        "T1021",
+        "Remote Services",
+        "Lateral Movement",
+        ("rdp", "ssh", "winrm", "remote"),
+        ("T1005", "T1486"),
+    ),
+    "T1005": Technique(
+        "T1005",
+        "Data from Local System",
+        "Collection",
+        ("archive", "collect", "zip", "sensitive"),
+        ("T1041",),
+    ),
+    "T1041": Technique(
+        "T1041",
+        "Exfiltration Over C2 Channel",
+        "Exfiltration",
+        ("exfil", "upload", "large transfer"),
+        ("T1486",),
+    ),
+    "T1486": Technique(
+        "T1486", "Data Encrypted for Impact", "Impact", ("encrypt", "ransom", "shadowcopy"), ()
+    ),
 }
 
 
@@ -96,7 +140,11 @@ class InMemoryAttackGraph:
         normalized = text.lower()
         matches: list[TechniqueMatch] = []
         for technique in self.techniques.values():
-            evidence = [keyword for keyword in technique.keywords if self._keyword_present(keyword, normalized)]
+            evidence = [
+                keyword
+                for keyword in technique.keywords
+                if self._keyword_present(keyword, normalized)
+            ]
             if evidence:
                 confidence = min(0.95, 0.45 + 0.15 * len(evidence))
                 matches.append(
@@ -124,9 +172,13 @@ class InMemoryAttackGraph:
             for next_id in technique.next_techniques:
                 scores[next_id] = max(scores.get(next_id, 0.0), match.confidence * 0.8)
         predictions = []
-        for technique_id, score in sorted(scores.items(), key=lambda item: item[1], reverse=True)[:3]:
+        for technique_id, score in sorted(scores.items(), key=lambda item: item[1], reverse=True)[
+            :3
+        ]:
             technique = self.techniques[technique_id]
-            tactic_index = TACTIC_ORDER.index(technique.tactic) if technique.tactic in TACTIC_ORDER else 0
+            tactic_index = (
+                TACTIC_ORDER.index(technique.tactic) if technique.tactic in TACTIC_ORDER else 0
+            )
             predictions.append(
                 Prediction(
                     technique_id=technique.technique_id,
@@ -167,29 +219,90 @@ class IntentReasoningEngine:
     def _stage_from_matches(self, matches: list[TechniqueMatch]) -> str:
         if not matches:
             return "Unknown"
-        return max(matches, key=lambda match: TACTIC_ORDER.index(match.tactic) if match.tactic in TACTIC_ORDER else -1).tactic
+        return max(
+            matches,
+            key=lambda match: (
+                TACTIC_ORDER.index(match.tactic) if match.tactic in TACTIC_ORDER else -1
+            ),
+        ).tactic
 
     def _confidence(self, matches: list[TechniqueMatch], events: list[dict[str, Any]]) -> float:
         if not matches:
             return 0.15 if events else 0.0
         evidence_bonus = min(0.2, len(events) * 0.03)
-        return round(min(0.98, sum(match.confidence for match in matches[:3]) / min(3, len(matches)) + evidence_bonus), 3)
+        return round(
+            min(
+                0.98,
+                sum(match.confidence for match in matches[:3]) / min(3, len(matches))
+                + evidence_bonus,
+            ),
+            3,
+        )
 
-    def _narrate(self, stage: str, matches: list[TechniqueMatch], predictions: list[Prediction], event_count: int) -> str:
+    def _narrate(
+        self,
+        stage: str,
+        matches: list[TechniqueMatch],
+        predictions: list[Prediction],
+        event_count: int,
+    ) -> str:
         if not matches:
             return f"{event_count} anomalous events were observed, but they do not map cleanly to the local ATT&CK knowledge base."
-        observed = ", ".join(f"{match.technique_name} ({match.technique_id})" for match in matches[:3])
-        likely_next = ", ".join(f"{prediction.technique_name} ({prediction.technique_id})" for prediction in predictions) or "no clear next step"
+        observed = ", ".join(
+            f"{match.technique_name} ({match.technique_id})" for match in matches[:3]
+        )
+        likely_next = (
+            ", ".join(
+                f"{prediction.technique_name} ({prediction.technique_id})"
+                for prediction in predictions
+            )
+            or "no clear next step"
+        )
         return f"{event_count} anomalous events suggest {observed}, placing the activity around {stage}. The most likely next techniques are {likely_next}."
 
     def _recommend(self, confidence: float, predictions: list[Prediction]) -> list[dict[str, Any]]:
         if confidence < 0.4:
-            return [{"action": "monitor", "requires_human": False, "rationale": "Confidence is below alert threshold."}]
+            return [
+                {
+                    "action": "monitor",
+                    "requires_human": False,
+                    "rationale": "Confidence is below alert threshold.",
+                }
+            ]
         if confidence < 0.65:
-            return [{"action": "alert_analyst", "requires_human": True, "rationale": "Suspicious chain requires review."}]
-        recommendations = [{"action": "preserve_forensics", "requires_human": False, "rationale": "Collect volatile context before it rolls off."}]
-        if any(prediction.tactic in {"Lateral Movement", "Exfiltration", "Impact"} for prediction in predictions):
-            recommendations.append({"action": "isolate_candidate_host", "requires_human": True, "rationale": "Predicted next move has high operational impact."})
-        if confidence >= 0.85 and any(prediction.tactic in {"Credential Access", "Impact"} for prediction in predictions):
-            recommendations.append({"action": "kill_suspicious_process", "requires_human": True, "rationale": "High-confidence endpoint compromise pattern."})
+            return [
+                {
+                    "action": "alert_analyst",
+                    "requires_human": True,
+                    "rationale": "Suspicious chain requires review.",
+                }
+            ]
+        recommendations = [
+            {
+                "action": "preserve_forensics",
+                "requires_human": False,
+                "rationale": "Collect volatile context before it rolls off.",
+            }
+        ]
+        if any(
+            prediction.tactic in {"Lateral Movement", "Exfiltration", "Impact"}
+            for prediction in predictions
+        ):
+            recommendations.append(
+                {
+                    "action": "isolate_candidate_host",
+                    "requires_human": True,
+                    "rationale": "Predicted next move has high operational impact.",
+                }
+            )
+        if confidence >= 0.85 and any(
+            prediction.tactic in {"Credential Access", "Impact"} for prediction in predictions
+        ):
+            recommendations.append(
+                {
+                    "action": "kill_suspicious_process",
+                    "requires_human": True,
+                    "rationale": "High-confidence endpoint compromise pattern.",
+                }
+            )
         return recommendations

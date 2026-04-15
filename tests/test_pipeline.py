@@ -10,7 +10,14 @@ from sentinel.llm import MockLLMProvider, SafetyEnvelopeReasoner
 from sentinel.memory import SituationalMemory
 from sentinel.network import NetworkVisibilityAnalyzer, summarize_network_findings
 from sentinel.reasoning import IntentReasoningEngine
-from sentinel.response import LocalResponsePlanner, ResponseExecutor, ResponsePlan, WindowsFirewallAdapter, WindowsProcessAdapter, WindowsQuarantineAdapter
+from sentinel.response import (
+    LocalResponsePlanner,
+    ResponseExecutor,
+    ResponsePlan,
+    WindowsFirewallAdapter,
+    WindowsProcessAdapter,
+    WindowsQuarantineAdapter,
+)
 from sentinel.review import review_plan
 from sentinel.storage import IncidentStore
 
@@ -89,10 +96,18 @@ class PipelineTests(unittest.TestCase):
         record = DecisionRecord(
             triggering_events=[source_event],
             anomaly_scores=[0.8],
-            classified_techniques=[{"technique_id": "T1059", "technique_name": "Command and Scripting Interpreter", "tactic": "Execution"}],
+            classified_techniques=[
+                {
+                    "technique_id": "T1059",
+                    "technique_name": "Command and Scripting Interpreter",
+                    "tactic": "Execution",
+                }
+            ],
             narrative="Observed command execution.",
             predicted_next=[],
-            recommended_actions=[{"action": "alert_analyst", "requires_human": True, "rationale": "Review needed."}],
+            recommended_actions=[
+                {"action": "alert_analyst", "requires_human": True, "rationale": "Review needed."}
+            ],
             action_taken="alert_analyst",
             confidence_score=0.7,
             human_review_required=True,
@@ -127,8 +142,16 @@ class PipelineTests(unittest.TestCase):
         plan = LocalResponsePlanner().build_plan(
             decision_id="decision-1",
             recommended_actions=[
-                {"action": "preserve_forensics", "requires_human": False, "rationale": "Collect context."},
-                {"action": "isolate_candidate_host", "requires_human": True, "rationale": "High impact prediction."},
+                {
+                    "action": "preserve_forensics",
+                    "requires_human": False,
+                    "rationale": "Collect context.",
+                },
+                {
+                    "action": "isolate_candidate_host",
+                    "requires_human": True,
+                    "rationale": "High impact prediction.",
+                },
             ],
             events=[make_event("curl upload", "proc-1", "203.0.113.10")],
         )
@@ -136,7 +159,9 @@ class PipelineTests(unittest.TestCase):
         self.assertTrue(plan.dry_run)
         self.assertTrue(plan.steps)
         self.assertTrue(all(step.dry_run for step in plan.steps))
-        self.assertIn("Would add Windows Firewall outbound block rule", plan.steps[-1].command_preview)
+        self.assertIn(
+            "Would add Windows Firewall outbound block rule", plan.steps[-1].command_preview
+        )
         self.assertEqual(plan.steps[-1].action, "block_ip_windows_firewall")
         self.assertTrue(plan.steps[-1].command_args)
         self.assertIn("Remove-NetFirewallRule", plan.steps[-1].rollback_preview)
@@ -238,13 +263,21 @@ class PipelineTests(unittest.TestCase):
         output_dir = Path("tests/fixtures/forensics_runtime")
         plan = LocalResponsePlanner().build_plan(
             decision_id="decision-forensics",
-            recommended_actions=[{"action": "preserve_forensics", "requires_human": False, "rationale": "Collect context."}],
+            recommended_actions=[
+                {
+                    "action": "preserve_forensics",
+                    "requires_human": False,
+                    "rationale": "Collect context.",
+                }
+            ],
             events=[make_event("powershell", "powershell.exe")],
             dry_run=False,
             allow_execute=True,
         )
 
-        result = ResponseExecutor(forensics_dir=output_dir).execute_plan(plan, allow_execute=True)[0]
+        result = ResponseExecutor(forensics_dir=output_dir).execute_plan(plan, allow_execute=True)[
+            0
+        ]
 
         self.assertEqual(result.status, "executed")
         self.assertIn("Wrote forensics snapshot", result.message)
@@ -253,7 +286,9 @@ class PipelineTests(unittest.TestCase):
         written_path.unlink()
 
     def test_quarantine_adapter_builds_reversible_move_command(self):
-        step = WindowsQuarantineAdapter(quarantine_dir="sentinel_data/quarantine").build_quarantine_step(
+        step = WindowsQuarantineAdapter(
+            quarantine_dir="sentinel_data/quarantine"
+        ).build_quarantine_step(
             file_path="C:\\Temp\\suspicious.exe",
             dry_run=True,
             requires_human=True,
@@ -306,7 +341,9 @@ class PipelineTests(unittest.TestCase):
             }
         )
 
-        result, metadata = SafetyEnvelopeReasoner(provider=provider).analyze(memory.context_builder.build())
+        result, metadata = SafetyEnvelopeReasoner(provider=provider).analyze(
+            memory.context_builder.build()
+        )
 
         self.assertTrue(metadata["llm_used"])
         self.assertIn("LLM refined", result.narrative_explanation)
@@ -317,7 +354,9 @@ class PipelineTests(unittest.TestCase):
         memory.add_event(make_event("powershell", "powershell.exe"))
         provider = MockLLMProvider({"attack_stage": "Execution", "confidence_score": 2.0})
 
-        result, metadata = SafetyEnvelopeReasoner(provider=provider).analyze(memory.context_builder.build())
+        result, metadata = SafetyEnvelopeReasoner(provider=provider).analyze(
+            memory.context_builder.build()
+        )
 
         self.assertTrue(metadata["llm_used"])
         self.assertTrue(metadata["validation_flags"])
@@ -331,7 +370,13 @@ class PipelineTests(unittest.TestCase):
         record = DecisionRecord(
             triggering_events=[source_event],
             anomaly_scores=[0.8],
-            classified_techniques=[{"technique_id": "T1059", "technique_name": "Command and Scripting Interpreter", "tactic": "Execution"}],
+            classified_techniques=[
+                {
+                    "technique_id": "T1059",
+                    "technique_name": "Command and Scripting Interpreter",
+                    "tactic": "Execution",
+                }
+            ],
             narrative="Observed command execution.",
             predicted_next=[],
             recommended_actions=[{"action": "alert_analyst", "requires_human": True}],

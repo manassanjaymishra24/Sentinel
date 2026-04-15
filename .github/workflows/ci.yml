@@ -14,7 +14,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Set up Python
-        uses: actions/setup-python@f677139edd7d925edc7592245015c4d73da5ecf9
+        uses: actions/setup-python@v5
         with:
           python-version: "3.10"
           cache: pip
@@ -47,7 +47,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@f677139edd7d925edc7592245015c4d73da5ecf9
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -76,7 +76,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Set up Python
-        uses: actions/setup-python@f677139edd7d925edc7592245015c4d73da5ecf9
+        uses: actions/setup-python@v5
         with:
           python-version: "3.10"
           cache: pip
@@ -116,7 +116,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Set up Python
-        uses: actions/setup-python@f677139edd7d925edc7592245015c4d73da5ecf9
+        uses: actions/setup-python@v5
         with:
           python-version: "3.10"
           cache: pip

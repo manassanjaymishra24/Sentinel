@@ -128,21 +128,38 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# Sentinel-specific
-sentinel_data/
-*.sqlite3
-*.db
-
-# IDE
+# IDEs
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
 
-# OS
+# OS generated files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
 
 # Logs
 *.log
 logs/
+
+# Sentinel-specific
+sentinel_data/
+tmp*/
+sentinel.log
+*.sqlite3
+*.sqlite3-journal
+
+# GitHub
+.github/ISSUE_TEMPLATE/
+.github/PULL_REQUEST_TEMPLATE/

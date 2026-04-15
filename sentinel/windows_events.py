@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import json
 import subprocess
+from datetime import datetime, timezone
 from typing import Any
 
 from sentinel.events import SysmonParser, UnifiedSecurityEvent, WindowsEventLogParser
 from sentinel.sysmon import SysmonSuspicionScorer
-
 
 DEFAULT_LOGS = [
     "Security",
@@ -69,7 +68,7 @@ $items | ConvertTo-Json -Depth 6
         ]
 
     def fetch_raw_events(self) -> list[dict[str, Any]]:
-        completed = subprocess.run(
+        completed = subprocess.run(  # noqa: S603
             self.build_command(),
             capture_output=True,
             text=True,

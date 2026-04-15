@@ -1,6 +1,6 @@
+import unittest
 from datetime import datetime, timezone
 from pathlib import Path
-import unittest
 
 from sentinel.audit import AuditTrail, DecisionRecord, ReportGenerator
 from sentinel.defense import PromptInjectionDefense

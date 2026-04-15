@@ -7,10 +7,9 @@ and tests.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
 import re
+from dataclasses import asdict, dataclass, field
 from typing import Any
-
 
 TACTIC_ORDER = [
     "Reconnaissance",

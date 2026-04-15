@@ -283,7 +283,6 @@ class IncidentStore:
             List of incident records for entity, ordered by timestamp (most recent first)
         """
         logger.debug(f"Querying incidents by entity: {entity_key} (limit={limit})")
-        needle = '"{entity_key}"'
         with self._connect() as conn:
             rows = conn.execute(
                 "SELECT * FROM incidents WHERE entity_keys LIKE ? ORDER BY timestamp DESC LIMIT ?",

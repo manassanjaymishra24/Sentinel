@@ -57,7 +57,7 @@ class PromptInjectionDefense:
                 base64.b64decode(safe, validate=True)
                 flags.append(f"base64_like:{path}")
                 safe = "[REDACTED_BASE64_LIKE_VALUE]"
-            except (binascii.Error, ValueError) as error:
+            except (binascii.Error, ValueError):
                 flags.append(f"base64_decode_error:{path}")
                 safe = "[REDACTED_BASE64_LIKE_VALUE]"
         if any(ord(char) > 127 for char in safe):

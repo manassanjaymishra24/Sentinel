@@ -7,7 +7,6 @@ from typing import Any
 
 from sentinel.events import UnifiedSecurityEvent
 
-
 SYSMON_EVENT_NAMES = {
     "1": "Process Create",
     "3": "Network Connection",

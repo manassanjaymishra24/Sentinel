@@ -1,23 +1,19 @@
 """Test suite for all new features."""
 
-import json
 import tempfile
+import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-import unittest
 
 from sentinel.audit import DecisionRecord
-from sentinel.defense import PromptInjectionDefense
 from sentinel.drift import BehavioralDriftAnalyzer
 from sentinel.events import UnifiedSecurityEvent
 from sentinel.llm import (
     AnthropicResponsesProvider,
     MockLLMProvider,
-    OpenAIResponsesProvider,
     SafetyEnvelopeReasoner,
 )
 from sentinel.network import NetworkVisibilityAnalyzer
-from sentinel.reasoning import IntentReasoningEngine, TechniqueMatch
 from sentinel.storage import IncidentStore
 
 

@@ -1,0 +1,159 @@
+name: Security Audit (Weekly Scans)
+
+on:
+  schedule:
+    # Every Monday at 03:00 UTC
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  security-events: write
+
+jobs:
+  dependency-audit:
+    name: Dependency Audit (pip-audit, safety)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Python
+        uses: actions/setup-python@f677139edd7d925edc7592245015c4d73da5ecf9
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run pip-audit
+        id: pip_audit
+        run: |
+          pip-audit --desc > pip_audit_report.txt 2>&1 || exit_code=$?
+          cat pip_audit_report.txt
+          exit ${exit_code:-0}
+
+      - name: Run safety check
+        id: safety
+        run: |
+          safety check --json > safety_report.json 2>&1 || exit_code=$?
+          cat safety_report.json
+          exit ${exit_code:-0}
+
+      - name: Create CVE issue if vulnerabilities found
+        if: failure()
+        uses: actions/github-script@60a0d83039c74a4aee604f3f4ffbc8b23d78dd67
+        with:
+          script: |
+            const fs = require('fs');
+            const pipAuditReport = fs.readFileSync('pip_audit_report.txt', 'utf8');
+            const safetyReport = JSON.parse(fs.readFileSync('safety_report.json', 'utf8'));
+            
+            const body = `## 🔒 Security Audit Alert\n
+            **Scheduled Security Scan Found Vulnerabilities**
+            
+            ### pip-audit Results:
+            \`\`\`
+            ${pipAuditReport}
+            \`\`\`
+            
+            ### safety Results:
+            \`\`\`json
+            ${JSON.stringify(safetyReport, null, 2)}
+            \`\`\`
+            
+            **Action Required**: Review and update vulnerable dependencies.
+            `;
+            
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🔒 Security: Vulnerabilities Detected',
+              body: body,
+              labels: ['security', 'dependencies', 'automated']
+            });
+
+      - name: Upload pip-audit report
+        uses: actions/upload-artifact@6ca3e1589f5700e67145017b4c6bcb8e0303ae3e
+        if: always()
+        with:
+          name: pip-audit-report
+          path: pip_audit_report.txt
+
+  secret-scan:
+    name: Secret Scan (trufflesecurity)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+
+      - name: Run TruffleHog secret scan
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --debug --only-verified
+
+      - name: Create GitHub Issue if secrets detected
+        if: failure()
+        uses: actions/github-script@60a0d83039c74a4aee604f3f4ffbc8b23d78dd67
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🔐 Critical: Potential Secrets Detected',
+              body: `TruffleHog detected potential secrets in the repository. Review the Actions log for details and remediate immediately.`,
+              labels: ['security', 'critical', 'secrets', 'automated']
+            });
+
+  sast:
+    name: SAST (CodeQL & Semgrep)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@88bd66bf1f77b6a0d8e95d0c5d3a8aca5e16a2ac
+        with:
+          languages: python
+
+      - name: Set up Python
+        uses: actions/setup-python@f677139edd7d925edc7592245015c4d73da5ecf9
+        with:
+          python-version: "3.10"
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@88bd66bf1f77b6a0d8e95d0c5d3a8aca5e16a2ac
+        with:
+          category: /language:python
+
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@ffc2b266ee2668372ca5642b9a7e5e2cd2a8bf35
+        with:
+          config: >-
+            p/python
+            p/security-audit
+            p/owasp-top-ten
+          generateSarif: true
+
+      - name: Upload SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@88bd66bf1f77b6a0d8e95d0c5d3a8aca5e16a2ac
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
+
+      - name: Comment on PR if issues found
+        if: github.event_name == 'pull_request' && failure()
+        uses: actions/github-script@60a0d83039c74a4aee604f3f4ffbc8b23d78dd67
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '⚠️ **Security Alert**: SAST scan detected potential security issues. Check the GitHub Security tab for details.'
+            });

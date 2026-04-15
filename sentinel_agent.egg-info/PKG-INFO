@@ -1,0 +1,249 @@
+Metadata-Version: 2.4
+Name: sentinel-agent
+Version: 0.1.0
+Summary: Autonomous security agent with LLM reasoning, behavioral drift detection, and network analysis
+Author: Security Team
+License: MIT
+Project-URL: Homepage, https://github.com/yourusername/sentinel
+Project-URL: Documentation, https://github.com/yourusername/sentinel/blob/main/README.md
+Project-URL: Repository, https://github.com/yourusername/sentinel.git
+Project-URL: Bug Tracker, https://github.com/yourusername/sentinel/issues
+Keywords: security,llm,autonomous-agent,anomaly-detection,network-analysis
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: System :: Monitoring
+Classifier: Topic :: Security
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: anthropic>=0.7.0
+Requires-Dist: openai>=1.0.0
+Requires-Dist: py2neo>=2021.2.3
+Requires-Dist: networkx>=3.0
+Requires-Dist: pyod>=1.0.0
+Requires-Dist: scikit-learn>=1.3.0
+Requires-Dist: kafka-python>=2.0.2
+Provides-Extra: dev
+Requires-Dist: pytest>=7.4.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
+Requires-Dist: mypy>=1.5.0; extra == "dev"
+Requires-Dist: ruff>=0.1.0; extra == "dev"
+Requires-Dist: pip-audit>=2.6.0; extra == "dev"
+Requires-Dist: bandit>=1.7.5; extra == "dev"
+Requires-Dist: safety>=2.3.5; extra == "dev"
+
+# SENTINEL Autonomous Security Agent
+
+This repository is a local, runnable scaffold derived from `SENTINEL_Project_Spec.docx`.
+It focuses on the Week 1 / Phase 1 goal while laying down the interfaces for the later
+layers: normalized events, anomaly scoring, situational memory, intent reasoning,
+prompt-injection hardening, and auditability.
+
+## Quick Start
+
+**PowerShell:**
+```powershell
+python -m unittest discover -s tests
+python -m sentinel.demo
+```
+
+**Command Prompt (cmd):**
+```cmd
+python -m unittest discover -s tests
+python -m sentinel.demo
+```
+
+Analyze a JSON or JSONL log file:
+
+```powershell
+python -m sentinel.demo --input sample_sysmon.json
+python -m sentinel.demo --input sample_cloudtrail.jsonl --parser cloudtrail
+python -m sentinel.demo --input sample_sysmon.json --report incident.md
+python -m sentinel.demo --input sample_sysmon.json --response-plan response.json
+python -m sentinel.demo --input sample_sysmon.json --incident-db sentinel_data\incidents.sqlite3
+```
+
+Supported parser names are `auto`, `sysmon`, `windows`, `auditd`, `zeek`, and
+`cloudtrail`. JSON files can contain a single object, a list of objects, or an
+object with `events`, `Records`, or `records`.
+
+## Optional LLM Reasoning
+
+Sentinel can route uncertain cases to an optional LLM safety envelope:
+
+**PowerShell:**
+```powershell
+$env:OPENAI_API_KEY="..."
+python -m sentinel.demo --input sample_sysmon.json --use-llm
+```
+
+**Command Prompt (cmd):**
+```cmd
+set OPENAI_API_KEY="..."
+python -m sentinel.demo --input sample_sysmon.json --use-llm
+```
+
+**Optional model selection (PowerShell):**
+```powershell
+$env:SENTINEL_OPENAI_MODEL="gpt-4.1-mini"
+```
+
+**Optional model selection (cmd):**
+```cmd
+set SENTINEL_OPENAI_MODEL="gpt-4.1-mini"
+```
+
+The deterministic reasoner remains the safety envelope. The LLM only receives
+sanitized context, must return structured JSON, and its output is rejected if it
+diverges too far from the baseline or fails validation. Obvious low/high
+confidence cases stay local for cost control.
+
+## Persistent Incidents
+
+Use SQLite to persist incidents and review outcomes:
+
+```powershell
+python -m sentinel.demo --response-plan response.json --incident-db sentinel_data\incidents.sqlite3
+python -m sentinel.review response.json --approve-all --non-interactive --incident-db sentinel_data\incidents.sqlite3
+```
+
+The store records decision IDs, timestamps, involved entities, confidence,
+human-review status, serialized audit records, and approval outcomes.
+
+## Local Response Planning
+
+The response layer is dry-run by default. It converts recommendations into
+auditable local response steps such as preserving forensics, alerting an analyst,
+or preparing host isolation. It prints command previews instead of executing
+system changes.
+
+```powershell
+python -m sentinel.demo --input tests\fixtures\sample_sysmon.json
+python -m sentinel.demo --input tests\fixtures\sample_sysmon.json --response-plan response.json
+```
+
+`--execute-response` still stays in dry-run unless paired with `--allow-execute`.
+Disruptive actions also require human approval.
+
+Human approval workflow:
+
+```powershell
+python -m sentinel.demo --response-plan response.json
+python -m sentinel.review response.json
+python -m sentinel.review response.json --approve-all --non-interactive --execute
+```
+
+The safest executable response is forensics preservation. When execution is
+explicitly allowed, Sentinel writes JSON snapshots under `sentinel_data/forensics`
+or a directory passed with `--forensics-dir`.
+
+```powershell
+python -m sentinel.review response.json --approve-all --non-interactive --execute --allow-execute --forensics-dir sentinel_data\forensics
+```
+
+The first disruptive response adapter is Windows Firewall IP blocking. It generates a
+reversible `New-NetFirewallRule` step with a matching `Remove-NetFirewallRule`
+rollback preview. Actual firewall execution requires all of these:
+
+- a generated `block_ip_windows_firewall` step
+- human approval
+- `--execute`
+- `--allow-execute`
+- an elevated terminal with permission to change firewall rules
+
+Without `--allow-execute`, reviewed firewall actions report `dry_run`.
+
+The second response adapter is a high-risk Windows process stop step. It prepares
+`Stop-Process -Id <pid> -Force` only when a process ID is present and the
+reasoning layer recommends `kill_suspicious_process`. It is irreversible and
+human-gated.
+
+The third disruptive response adapter is file quarantine. It prepares a reversible
+`Move-Item` into `sentinel_data/quarantine` when a suspicious file path is present.
+It is also human-gated.
+
+## Live Windows Monitoring
+
+Sentinel can now read recent local Windows Event Logs through PowerShell
+`Get-WinEvent`, normalize the events, run the reasoning pipeline, and print a
+dry-run response plan.
+
+Run one polling cycle:
+
+**PowerShell:**
+```powershell
+python -m sentinel.monitor --once --logs System "Windows PowerShell" --since-minutes 10 --max-events 20
+```
+
+**Command Prompt (cmd):**
+```cmd
+python -m sentinel.monitor --once --logs System "Windows PowerShell" --since-minutes 10 --max-events 20
+```
+
+Run continuously:
+
+**PowerShell:**
+```powershell
+python -m sentinel.monitor --logs System "Windows PowerShell" --interval 30
+```
+
+**Command Prompt (cmd):**
+```cmd
+python -m sentinel.monitor --logs System "Windows PowerShell" --interval 30
+```
+
+Some logs, especially `Security`, may require an elevated terminal. Missing or
+restricted logs are reported as read errors and skipped.
+
+Sysmon enrichment is supported for `Microsoft-Windows-Sysmon/Operational`.
+Sentinel expands Sysmon event messages and scores common suspicious behaviors:
+
+- PowerShell encoded commands
+- `cmd.exe` spawning PowerShell
+- `certutil`, `curl`, `wget`, or `bitsadmin` downloads
+- LSASS process access
+- autorun registry writes
+- archive staging
+- public outbound connections
+- suspicious DNS patterns
+
+Network metadata scoring is available for Zeek-style records. Sentinel can flag:
+
+- DNS tunneling-like long or encoded labels
+- large outbound transfer imbalance
+- long-lived sessions
+- known suspicious JA3 TLS fingerprints
+
+The demo uses a small in-memory MITRE-like knowledge graph and deterministic reasoning
+rules, so it works without Neo4j, Kafka, LangGraph, or an LLM API key. Production
+integrations can be added behind the existing adapter classes.
+
+## Package Map
+
+- `sentinel.events`: unified event schema and parsers for common log formats.
+- `sentinel.llm`: optional LLM safety-envelope reasoning.
+- `sentinel.perception`: feature extraction and anomaly scoring interfaces.
+- `sentinel.network`: Zeek-style network metadata analysis.
+- `sentinel.memory`: sliding context window, entity graph, and hypothesis store.
+- `sentinel.reasoning`: attack-stage classification and next-technique prediction.
+- `sentinel.defense`: prompt-injection input sanitization and output validation.
+- `sentinel.audit`: decision records, markdown reports, and analyst review queue.
+- `sentinel.response`: dry-run local response planning.
+- `sentinel.review`: human approval and guarded response execution CLI.
+- `sentinel.storage`: SQLite incident and approval persistence.
+- `sentinel.sysmon`: Sysmon event enrichment and suspicion scoring.
+- `sentinel.windows_events`: live Windows Event Log ingestion.
+- `sentinel.monitor`: live monitoring CLI.
+
+## Current Scope
+
+This is a research prototype, not a production security appliance. Response actions
+are intentionally conservative: forensics can write local snapshots, while firewall,
+process termination, and file quarantine actions require explicit approval and
+execution flags.

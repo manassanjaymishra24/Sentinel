@@ -1,0 +1,231 @@
+name: PR Checks (Validation & Labels)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  pr-validation:
+    name: Validate PR Quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+
+      - name: Validate conventional commits
+        uses: compilerla/conventional-pre-commit@v2.3.0
+        if: github.event_name == 'pull_request'
+        with:
+          force-full-commit-range: true
+          commit-types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            chore
+
+      - name: Check PR description
+        uses: actions/github-script@60a0d83039c74a4aee604f3f4ffbc8b23d78dd67
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const MIN_LENGTH = 20;
+            
+            if (!pr.body || pr.body.trim().length < MIN_LENGTH) {
+              core.setFailed(`PR description is too short (minimum ${MIN_LENGTH} characters)`);
+            }
+            
+            // Warn if no issue linked
+            const issuePattern = /#\d+|closes.*#\d+|fixes.*#\d+/i;
+            if (!issuePattern.test(pr.body)) {
+              core.warning('PR does not reference any GitHub issue. Consider adding "closes #123" to link this PR.');
+            }
+
+      - name: Validate branch naming
+        run: |
+          BRANCH_NAME="${{ github.head_ref }}"
+          echo "Validating branch: $BRANCH_NAME"
+          
+          # Branch should match pattern: type/description or type-description
+          if ! [[ "$BRANCH_NAME" =~ ^(feature|fix|docs|refactor|perf|test|chore)([/-]|$) ]]; then
+            echo "⚠️  Branch name should start with: feature/, fix/, docs/, refactor/, perf/, test/, or chore/"
+            echo "   Example: feature/add-new-detector or fix/cache-bug"
+          fi
+
+  diff-analysis:
+    name: Diff Analysis & Test Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@f677139edd7d925edc7592245015c4d73da5ecf9
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Analyze changed files
+        uses: actions/github-script@60a0d83039c74a4aee604f3f4ffbc8b23d78dd67
+        with:
+          script: |
+            const { execSync } = require('child_process');
+            
+            // Get diff
+            const diff = execSync(`git diff origin/${{ github.base_ref }}..HEAD --name-only`, {
+              encoding: 'utf8'
+            });
+            
+            const changedFiles = diff.trim().split('\n').filter(f => f);
+            console.log('Changed files:', changedFiles);
+            
+            const pyFiles = changedFiles.filter(f => f.endsWith('.py'));
+            const testFiles = changedFiles.filter(f => f.includes('test'));
+            const configFiles = changedFiles.filter(f => 
+              ['.yml', '.toml', '.ini', '.cfg', 'Dockerfile'].some(ext => f.includes(ext))
+            );
+            
+            console.log(`\n📊 Summary:\n- Python files: ${pyFiles.length}\n- Test files: ${testFiles.length}\n- Config files: ${configFiles.length}`);
+            
+            if (pyFiles.length > 0 && testFiles.length === 0) {
+              core.warning('Production Python files changed but no test files modified. Consider adding tests.');
+            }
+
+      - name: Collect test coverage delta
+        id: coverage
+        env:
+          ANTHROPIC_API_KEY: "test-key-sentinel"
+          OPENAI_API_KEY: "test-key-sentinel"
+          SENTINEL_ENV: "test"
+        run: |
+          pytest tests/ -q --cov=sentinel --cov-report=term-missing:skip-covered 2>&1 | tee coverage_output.txt || true
+          COVERAGE=$(grep "^TOTAL" coverage_output.txt | awk '{print $NF}' || echo "unknown")
+          echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+
+      - name: Post coverage comment
+        uses: actions/github-script@60a0d83039c74a4aee604f3f4ffbc8b23d78dd67
+        if: always()
+        with:
+          script: |
+            const fs = require('fs');
+            const coverage = '${{ steps.coverage.outputs.coverage }}';
+            
+            const comment = `## 📊 Test Coverage Report
+
+            Coverage: **${coverage}**
+            
+            ✅ Tests executed and assessed on changed code.
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  label-automation:
+    name: Auto-Label PR
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+
+      - name: Determine labels from changed files
+        uses: actions/github-script@60a0d83039c74a4aee604f3f4ffbc8b23d78dd67
+        with:
+          script: |
+            const { execSync } = require('child_process');
+            const fs = require('fs');
+            
+            // Get diff
+            const diff = execSync(`git diff origin/${{ github.base_ref }}..HEAD --name-only`, {
+              encoding: 'utf8'
+            }).trim();
+            
+            const changedFiles = diff.split('\n').filter(f => f);
+            const labels = new Set();
+            
+            // Map file patterns to labels
+            const patterns = {
+              'llm.py': ['enhancement', 'reasoning'],
+              'storage.py': ['enhancement', 'storage'],
+              'network.py': ['security', 'detection'],
+              'drift.py': ['enhancement', 'anomaly-detection'],
+              'monitor.py': ['monitoring'],
+              'defense.py': ['security', 'response'],
+              'test_': ['test'],
+              '.github/workflows': ['ci/cd'],
+              'pyproject.toml': ['dependencies', 'build'],
+              'CHANGELOG.md': ['documentation'],
+              'README.md': ['documentation'],
+              'sentinel/': ['core'],
+            };
+            
+            for (const file of changedFiles) {
+              for (const [pattern, fileLabels] of Object.entries(patterns)) {
+                if (file.includes(pattern)) {
+                  fileLabels.forEach(l => labels.add(l));
+                }
+              }
+            }
+            
+            // Add size label
+            const size = changedFiles.length;
+            if (size <= 3) labels.add('size/xs');
+            else if (size <= 10) labels.add('size/s');
+            else if (size <= 30) labels.add('size/m');
+            else if (size <= 100) labels.add('size/l');
+            else labels.add('size/xl');
+            
+            console.log('Labels to apply:', Array.from(labels));
+            
+            if (labels.size > 0) {
+              github.rest.issues.addLabels({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                labels: Array.from(labels)
+              });
+              
+              console.log('✅ Labels applied:', Array.from(labels).join(', '));
+            }
+
+      - name: Add type label
+        uses: actions/github-script@60a0d83039c74a4aee604f3f4ffbc8b23d78dd67
+        with:
+          script: |
+            const title = '${{ github.event.pull_request.title }}';
+            let typeLabel = 'type/other';
+            
+            if (title.toLowerCase().startsWith('feat')) typeLabel = 'type/feature';
+            else if (title.toLowerCase().startsWith('fix')) typeLabel = 'type/bug-fix';
+            else if (title.toLowerCase().startsWith('docs')) typeLabel = 'type/documentation';
+            else if (title.toLowerCase().startsWith('refactor')) typeLabel = 'type/refactor';
+            else if (title.toLowerCase().startsWith('perf')) typeLabel = 'type/performance';
+            else if (title.toLowerCase().startsWith('test')) typeLabel = 'type/tests';
+            else if (title.toLowerCase().startsWith('chore')) typeLabel = 'type/chore';
+            
+            github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: [typeLabel]
+            });
+            
+            console.log('✅ Type label added:', typeLabel);

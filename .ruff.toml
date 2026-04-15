@@ -1,0 +1,46 @@
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+indent-width = 4
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # Pyflakes
+    "I",     # isort
+    "N",     # pep8-naming
+    "UP",    # pyupgrade
+    "S",     # flake8-bandit  (security)
+    "B",     # flake8-bugbear (bug detection)
+    "A",     # flake8-builtins (builtin shadowing)
+    "C4",    # flake8-comprehensions
+    "RET",   # flake8-return
+    "SIM",   # flake8-simplify
+]
+
+ignore = [
+    "E501",  # Line too long (handled by formatter)
+    "S101",  # Use of assert (allowed in tests)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "S101",  # assert in tests
+    "S106",  # hardcoded passwords allowed in test fixtures
+    "N801",  # class name conventions relaxed for tests
+    "S105",  # hardcoded test credentials
+]
+"sentinel/__init__.py" = [
+    "F401",  # unused imports (re-exported)
+]
+"**/conftest.py" = [
+    "S101",  # assert in conftest
+    "S106",  # test credentials
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"

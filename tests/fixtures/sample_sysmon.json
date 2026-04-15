@@ -1,0 +1,10 @@
+[
+  {
+    "UtcTime": "2026-04-15T12:00:00Z",
+    "EventID": "1",
+    "ProcessGuid": "{fixture-1}",
+    "Image": "powershell.exe",
+    "CommandLine": "powershell whoami",
+    "ParentImage": "explorer.exe"
+  }
+]

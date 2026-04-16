@@ -23,7 +23,7 @@ import logging
 import os
 import urllib.request
 from dataclasses import dataclass
-from typing import Any, Protocol, TypedDict
+from typing import Any, Protocol, TypedDict, cast
 
 from sentinel.defense import PromptInjectionDefense
 from sentinel.reasoning import IntentReasoningEngine, ReasoningResult, TechniqueMatch
@@ -217,9 +217,9 @@ class OpenAIResponsesProvider:
         for item in data.get("output", []):
             for content in item.get("content", []):
                 if content.get("type") in {"output_text", "text"} and content.get("text"):
-                    return json.loads(content["text"])
+                    return cast(dict[str, Any], json.loads(content["text"]))
         if data.get("output_text"):
-            return json.loads(data["output_text"])
+            return cast(dict[str, Any], json.loads(data["output_text"]))
         raise ValueError("OpenAI response did not contain JSON output text")
 
 
@@ -344,7 +344,7 @@ class AnthropicResponsesProvider:
                     text = text.split("```")[1].split("```")[0].strip()
                     logger.debug("Extracted JSON from generic code block")
                 try:
-                    result = json.loads(text)
+                    result = cast(dict[str, Any], json.loads(text))
                     logger.debug("Successfully parsed JSON from Claude response")
                     return result
                 except json.JSONDecodeError as e:

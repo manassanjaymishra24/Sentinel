@@ -14,6 +14,7 @@ from sentinel.audit import AuditTrail, DecisionRecord, ReportGenerator
 from sentinel.defense import PromptInjectionDefense
 from sentinel.events import (
     CloudTrailParser,
+    EventParser,
     LinuxAuditdParser,
     SysmonParser,
     UnifiedSecurityEvent,
@@ -26,7 +27,7 @@ from sentinel.reasoning import IntentReasoningEngine
 from sentinel.response import LocalResponsePlanner, ResponsePlan
 from sentinel.storage import IncidentStore
 
-PARSERS = {
+PARSERS: dict[str, type[EventParser]] = {
     "sysmon": SysmonParser,
     "windows": WindowsEventLogParser,
     "auditd": LinuxAuditdParser,

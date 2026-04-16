@@ -6,6 +6,7 @@ import argparse
 import json
 import time
 from pathlib import Path
+from typing import Any
 
 from sentinel.audit import ReportGenerator
 from sentinel.demo import analyze_events
@@ -82,7 +83,7 @@ def run_cycle(args: argparse.Namespace) -> int:
     return len(events)
 
 
-def write_outputs(args: argparse.Namespace, record, response_plan) -> None:
+def write_outputs(args: argparse.Namespace, record: Any, response_plan: Any) -> None:
     if args.report_dir:
         args.report_dir.mkdir(parents=True, exist_ok=True)
         report_path = args.report_dir / f"{record.decision_id}.md"

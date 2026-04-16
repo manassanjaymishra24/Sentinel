@@ -27,7 +27,7 @@ import logging
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from statistics import mean, stdev
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, TypedDict, cast
 
 from sentinel.storage import IncidentStore
 
@@ -114,7 +114,7 @@ class BehavioralDriftAnalyzer:
         window_profiles = [self._profile_window(entity_key, start, end) for start, end in windows]
 
         # Compute drift metrics
-        drift_metrics = {
+        drift_metrics: DriftResultDict = {
             "entity_key": entity_key,
             "windows_analyzed": len(window_profiles),
             "window_size_days": window_size_days,
@@ -133,12 +133,12 @@ class BehavioralDriftAnalyzer:
             return drift_metrics
 
         # Compute frequency drift (incidents per window)
-        frequencies = [p["incident_count"] for p in window_profiles]
+        frequencies = cast(list[float], [float(p["incident_count"]) for p in window_profiles])
         if len(frequencies) >= 2 and max(frequencies) > 0:
             freq_variance = self._compute_variance(frequencies)
             drift_metrics["frequency_drift"] = round(freq_variance, 3)
             if freq_variance > 0.8:  # High variance = high drift
-                anomaly: DriftAnomaly = {
+                freq_anomaly: DriftAnomaly = {
                     "type": "frequency_spike",
                     "severity": "high" if freq_variance > 0.95 else "medium",
                     "details": {
@@ -146,9 +146,9 @@ class BehavioralDriftAnalyzer:
                         "historical_avg": round(mean(frequencies[:-1]), 1),
                     },
                 }
-                drift_metrics["anomalies"].append(anomaly)
+                drift_metrics["anomalies"].append(freq_anomaly)
                 logger.info(
-                    f"Anomaly detected: frequency_spike [{anomaly['severity']}] for entity={entity_key}"
+                    f"Anomaly detected: frequency_spike [{freq_anomaly['severity']}] for entity={entity_key}"
                 )
 
         # Compute confidence drift
@@ -162,7 +162,7 @@ class BehavioralDriftAnalyzer:
                 severity: Literal["low", "medium", "high"] = (
                     "high" if abs(current_conf - historical_avg) > 0.4 else "medium"
                 )
-                anomaly: DriftAnomaly = {
+                conf_anomaly: DriftAnomaly = {
                     "type": "confidence_change",
                     "severity": severity,
                     "details": {
@@ -170,7 +170,7 @@ class BehavioralDriftAnalyzer:
                         "historical_avg": round(historical_avg, 3),
                     },
                 }
-                drift_metrics["anomalies"].append(anomaly)
+                drift_metrics["anomalies"].append(conf_anomaly)
                 logger.info(
                     f"Anomaly detected: confidence_change [{severity}] for entity={entity_key}"
                 )
@@ -190,7 +190,7 @@ class BehavioralDriftAnalyzer:
 
             if technique_drift > 0.5:
                 new_techniques = recent_techniques - historical_techniques
-                anomaly: DriftAnomaly = {
+                tech_anomaly: DriftAnomaly = {
                     "type": "new_techniques",
                     "severity": "high" if len(new_techniques) > 3 else "medium",
                     "details": {
@@ -198,9 +198,9 @@ class BehavioralDriftAnalyzer:
                         "new_technique_count": len(new_techniques),
                     },
                 }
-                drift_metrics["anomalies"].append(anomaly)
+                drift_metrics["anomalies"].append(tech_anomaly)
                 logger.info(
-                    f"Anomaly detected: new_techniques [{anomaly['severity']}] for entity={entity_key}"
+                    f"Anomaly detected: new_techniques [{tech_anomaly['severity']}] for entity={entity_key}"
                 )
 
         # Compute overall drift score
@@ -267,6 +267,7 @@ class BehavioralDriftAnalyzer:
                 "period_end": end,
                 "incident_count": 0,
                 "avg_confidence": 0.0,
+                "max_confidence": 0.0,
                 "top_techniques": [],
             }
 
@@ -288,6 +289,7 @@ class BehavioralDriftAnalyzer:
             "period_end": end,
             "incident_count": len(rows),
             "avg_confidence": round(mean(confidences), 3) if confidences else 0.0,
+            "max_confidence": round(max(confidences), 3) if confidences else 0.0,
             "top_techniques": top_techniques,
         }
 

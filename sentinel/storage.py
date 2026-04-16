@@ -17,7 +17,7 @@ import logging
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, TypedDict, cast
 
 from sentinel.audit import DecisionRecord
 
@@ -233,7 +233,7 @@ class IncidentStore:
                 (limit,),
             ).fetchall()
         logger.debug(f"Found {len(rows)} recent incidents")
-        return [self._row_to_dict(row) for row in rows]
+        return cast(list[IncidentRecordDict], [self._row_to_dict(row) for row in rows])
 
     def similar_incidents(self, entity_key: str, limit: int = 5) -> list[IncidentRecordDict]:
         """Get incidents for specific entity (simple substring match).
@@ -253,7 +253,7 @@ class IncidentStore:
                 (needle, limit),
             ).fetchall()
         logger.debug(f"Found {len(rows)} incidents for entity {entity_key}")
-        return [self._row_to_dict(row) for row in rows]
+        return cast(list[IncidentRecordDict], [self._row_to_dict(row) for row in rows])
 
     def _row_to_dict(self, row: sqlite3.Row) -> dict[str, Any]:
         """Convert SQLite Row to dictionary with JSON fields parsed.
@@ -289,7 +289,7 @@ class IncidentStore:
                 (f"%{entity_key}%", limit),
             ).fetchall()
         logger.debug(f"Found {len(rows)} incidents for entity {entity_key}")
-        return [self._row_to_dict(row) for row in rows]
+        return cast(list[IncidentRecordDict], [self._row_to_dict(row) for row in rows])
 
     def get_incidents_by_stage(
         self, attack_stage: str, limit: int = 20
@@ -312,7 +312,7 @@ class IncidentStore:
                 (attack_stage, limit),
             ).fetchall()
         logger.debug(f"Found {len(rows)} incidents for stage {attack_stage}")
-        return [self._row_to_dict(row) for row in rows]
+        return cast(list[IncidentRecordDict], [self._row_to_dict(row) for row in rows])
 
     def get_incidents_by_confidence(
         self, min_confidence: float, limit: int = 20
@@ -335,7 +335,7 @@ class IncidentStore:
                 (min_confidence, limit),
             ).fetchall()
         logger.debug(f"Found {len(rows)} incidents with confidence >= {min_confidence:.2f}")
-        return [self._row_to_dict(row) for row in rows]
+        return cast(list[IncidentRecordDict], [self._row_to_dict(row) for row in rows])
 
     def find_similar_incidents(self, decision_id: str, limit: int = 5) -> list[IncidentRecordDict]:
         """Find incidents with overlapping techniques or entities.
@@ -400,7 +400,7 @@ class IncidentStore:
         logger.debug(
             f"Found {len(candidates[:limit])} similar incidents (top {min(len(candidates), limit)} of {len(candidates)} candidates)"
         )
-        return candidates[:limit]
+        return cast(list[IncidentRecordDict], candidates[:limit])
 
     def get_entity_statistics(self, entity_key: str) -> EntityStatisticsDict:
         """Get statistics for an entity (incident count, confidence, etc.).
@@ -439,7 +439,15 @@ class IncidentStore:
 
         if not stats:
             logger.debug(f"No statistics found for entity: {entity_key}")
-            return {}
+            return {
+                "entity_key": entity_key,
+                "total_incidents": 0,
+                "avg_confidence": 0.0,
+                "max_confidence": 0.0,
+                "min_confidence": 0.0,
+                "reviewed_count": 0,
+                "pending_review": 0,
+            }
 
         result = {
             "entity_key": entity_key,
@@ -453,7 +461,7 @@ class IncidentStore:
         logger.debug(
             f"Entity {entity_key} stats: {result['total_incidents']} incidents, {result['reviewed_count']} reviewed"
         )
-        return result
+        return cast(EntityStatisticsDict, result)
 
     def get_top_entities(self, limit: int = 10) -> list[EntityActivityDict]:
         """Get entities with most incidents (activity leaderboard).
@@ -493,7 +501,7 @@ class IncidentStore:
         # Sort by incident count
         results.sort(key=lambda x: x["incident_count"], reverse=True)
         logger.debug(f"Found {len(results[:limit])} top entities")
-        return results[:limit]
+        return cast(list[EntityActivityDict], results[:limit])
 
     def compute_entity_reputation(
         self,
@@ -529,7 +537,13 @@ class IncidentStore:
                 "reputation_score": 0.0,
                 "risk_level": "clean",
                 "incidents_in_period": 0,
-                "factors": {},
+                "factors": {
+                    "incident_frequency": 0.0,
+                    "avg_confidence": 0.0,
+                    "recency_weight": 0.0,
+                    "false_positive_rate": 0.0,
+                    "fp_penalty": 0.0,
+                },
             }
 
         now = datetime.now(timezone.utc)
@@ -573,7 +587,7 @@ class IncidentStore:
         else:
             risk_level = "high"
 
-        return {
+        return cast(ReputationResultDict, {
             "entity_key": entity_key,
             "reputation_score": round(reputation_score, 3),
             "risk_level": risk_level,
@@ -585,7 +599,7 @@ class IncidentStore:
                 "false_positive_rate": round(false_positive_rate, 3),
                 "fp_penalty": round(fp_penalty, 3),
             },
-        }
+        })
 
     def get_entity_reputation_leaderboard(
         self, limit: int = 20, days_lookback: int = 30

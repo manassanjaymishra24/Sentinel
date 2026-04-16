@@ -179,7 +179,7 @@ class NetworkVisibilityAnalyzer:
         )
         return event
 
-    def parse_and_enrich(self, raw: dict[str, any]) -> UnifiedSecurityEvent:
+    def parse_and_enrich(self, raw: dict[str, Any]) -> UnifiedSecurityEvent:
         """Parse Zeek network log entry and enrich with analysis.
 
         Args:
@@ -250,33 +250,6 @@ class NetworkVisibilityAnalyzer:
 
         # Very diverse character set (>0.7 ratio) suggests encoding/tunneling
         return entropy_ratio > 0.7
-
-    def _has_long_dns_label(self, query: str) -> bool:
-        return any(len(label) >= 45 for label in query.split("."))
-
-    def _looks_encoded(self, query: str) -> bool:
-        labels = [label for label in query.split(".") if label]
-        if not labels:
-            return False
-        suspicious = []
-        for label in labels:
-            if len(label) < 20:
-                continue
-            alpha_num = sum(char.isalnum() for char in label) / max(1, len(label))
-            unique_ratio = len(set(label.lower())) / max(1, len(label))
-            suspicious.append(alpha_num > 0.9 and unique_ratio > 0.45)
-        return bool(suspicious)
-
-    def _add_if(
-        self,
-        findings: list[NetworkFinding],
-        rule_id: str,
-        condition: bool,
-        description: str,
-        score: float,
-    ) -> None:
-        if condition:
-            findings.append(NetworkFinding(rule_id=rule_id, description=description, score=score))
 
 
 def summarize_network_findings(events: list[UnifiedSecurityEvent]) -> dict[str, Any]:

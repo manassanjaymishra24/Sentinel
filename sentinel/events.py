@@ -7,7 +7,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 from uuid import uuid4
 
 LOGGER = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ def _parse_timestamp(value: Any) -> datetime:
 def _raw_dict(raw: str | dict[str, Any]) -> dict[str, Any]:
     if isinstance(raw, dict):
         return raw
-    return json.loads(raw)
+    return cast(dict[str, Any], json.loads(raw))
 
 
 def _event_id(data: dict[str, Any]) -> str:

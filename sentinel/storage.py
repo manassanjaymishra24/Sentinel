@@ -179,7 +179,8 @@ class IncidentStore:
                 ),
             )
         logger.info(
-            f"Saved incident {record.decision_id}: entities={entity_keys}, stage={attack_stage}, confidence={record.confidence_score:.2f}"
+            f"Saved incident {record.decision_id}: entities={entity_keys}, "
+            f"stage={attack_stage}, confidence={record.confidence_score:.2f}"
         )
 
     def record_approval(
@@ -368,7 +369,9 @@ class IncidentStore:
         ref_techniques = {
             t.get("technique_id") for t in ref_data["record_json"].get("classified_techniques", [])
         }
-        logger.debug(f"Reference: entities={ref_entities}, techniques={ref_techniques}")
+        logger.debug(
+            f"Reference: entities={ref_entities}, techniques={ref_techniques}"
+        )
 
         # Find incidents with overlapping entities or techniques
         candidates = []
@@ -398,7 +401,8 @@ class IncidentStore:
         # Sort by overlap score and return top matches
         candidates.sort(key=lambda x: x["overlap_score"], reverse=True)
         logger.debug(
-            f"Found {len(candidates[:limit])} similar incidents (top {min(len(candidates), limit)} of {len(candidates)} candidates)"
+            f"Found {len(candidates[:limit])} similar incidents "
+            f"(top {min(len(candidates), limit)} of {len(candidates)} candidates)"
         )
         return cast(list[IncidentRecordDict], candidates[:limit])
 

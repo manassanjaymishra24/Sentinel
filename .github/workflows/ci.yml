@@ -38,7 +38,7 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
-      fail-fast: true
+      fail-fast: false  # ← fixed: let all matrix jobs run independently
     env:
       ANTHROPIC_API_KEY: "test-key-sentinel"
       OPENAI_API_KEY: "test-key-sentinel"
@@ -61,7 +61,7 @@ jobs:
           --cov=sentinel --cov-report=xml --cov-report=term
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@5ecb98a3c6b747ed38dc09f064a32470195c3c15
+        uses: codecov/codecov-action@v4  # ← use stable tag
         with:
           files: ./coverage.xml
           flags: unittests
@@ -102,7 +102,7 @@ jobs:
         run: safety check --json || true
 
       - name: Upload security reports
-        uses: actions/upload-artifact@6ca3e1589f5700e67145017b4c6bcb8e0303ae3e
+        uses: actions/upload-artifact@v4  # ← fixed
         if: always()
         with:
           name: security-reports
@@ -129,7 +129,6 @@ jobs:
 
       - name: Check type coverage threshold
         run: |
-          # Count fully typed vs total functions (simplified check)
           total=$(find sentinel -name "*.py" -type f | wc -l)
           echo "Total Python files in sentinel: $total"
           if [ "$total" -lt 5 ]; then
@@ -138,7 +137,7 @@ jobs:
           fi
 
       - name: Upload type coverage report
-        uses: actions/upload-artifact@6ca3e1589f5700e67145017b4c6bcb8e0303ae3e
+        uses: actions/upload-artifact@v4  # ← fixed
         with:
           name: type-coverage
           path: mypy-report/

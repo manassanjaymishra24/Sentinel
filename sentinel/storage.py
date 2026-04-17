@@ -369,9 +369,7 @@ class IncidentStore:
         ref_techniques = {
             t.get("technique_id") for t in ref_data["record_json"].get("classified_techniques", [])
         }
-        logger.debug(
-            f"Reference: entities={ref_entities}, techniques={ref_techniques}"
-        )
+        logger.debug(f"Reference: entities={ref_entities}, techniques={ref_techniques}")
 
         # Find incidents with overlapping entities or techniques
         candidates = []
@@ -591,19 +589,22 @@ class IncidentStore:
         else:
             risk_level = "high"
 
-        return cast(ReputationResultDict, {
-            "entity_key": entity_key,
-            "reputation_score": round(reputation_score, 3),
-            "risk_level": risk_level,
-            "incidents_in_period": incidents_in_period,
-            "factors": {
-                "incident_frequency": round(freq_score, 3),
-                "avg_confidence": round(conf_score, 3),
-                "recency_weight": round(recency_score, 3),
-                "false_positive_rate": round(false_positive_rate, 3),
-                "fp_penalty": round(fp_penalty, 3),
+        return cast(
+            ReputationResultDict,
+            {
+                "entity_key": entity_key,
+                "reputation_score": round(reputation_score, 3),
+                "risk_level": risk_level,
+                "incidents_in_period": incidents_in_period,
+                "factors": {
+                    "incident_frequency": round(freq_score, 3),
+                    "avg_confidence": round(conf_score, 3),
+                    "recency_weight": round(recency_score, 3),
+                    "false_positive_rate": round(false_positive_rate, 3),
+                    "fp_penalty": round(fp_penalty, 3),
+                },
             },
-        })
+        )
 
     def get_entity_reputation_leaderboard(
         self, limit: int = 20, days_lookback: int = 30

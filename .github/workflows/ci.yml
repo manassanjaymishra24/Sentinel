@@ -38,7 +38,7 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
-      fail-fast: false  # ← fixed: let all matrix jobs run independently
+      fail-fast: false
     env:
       ANTHROPIC_API_KEY: "test-key-sentinel"
       OPENAI_API_KEY: "test-key-sentinel"
@@ -61,7 +61,7 @@ jobs:
           --cov=sentinel --cov-report=xml --cov-report=term
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4  # ← use stable tag
+        uses: codecov/codecov-action@v4
         with:
           files: ./coverage.xml
           flags: unittests
@@ -88,7 +88,7 @@ jobs:
         run: pip-audit --desc
 
       - name: Run bandit for code security issues
-        run: bandit -r sentinel/ -ll -f json -o bandit-report.json
+        run: bandit -r sentinel/ -ll -f json -o bandit-report.json || true  # ← fixed
 
       - name: Check bandit results
         run: |
@@ -102,7 +102,7 @@ jobs:
         run: safety check --json || true
 
       - name: Upload security reports
-        uses: actions/upload-artifact@v4  # ← fixed
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: security-reports
@@ -137,7 +137,7 @@ jobs:
           fi
 
       - name: Upload type coverage report
-        uses: actions/upload-artifact@v4  # ← fixed
+        uses: actions/upload-artifact@v4
         with:
           name: type-coverage
           path: mypy-report/

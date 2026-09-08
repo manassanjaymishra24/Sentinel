@@ -160,6 +160,3 @@ sentinel.log
 *.sqlite3
 *.sqlite3-journal
 
-# GitHub
-.github/ISSUE_TEMPLATE/
-.github/PULL_REQUEST_TEMPLATE/

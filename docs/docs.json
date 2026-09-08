@@ -7,53 +7,59 @@
     "light": "#2DD4BF",
     "dark": "#0B6651"
   },
-  "topbarLinks": [
-    {
-      "name": "GitHub",
-      "url": "https://github.com/manassanjaymishra24/Sentinel"
+  "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/manassanjaymishra24/Sentinel"
+      }
+    ]
+  },
+  "navigation": {
+    "groups": [
+      {
+        "group": "Introduction",
+        "pages": [
+          "introduction",
+          "quickstart"
+        ]
+      },
+      {
+        "group": "Architecture & Concepts",
+        "pages": [
+          "concepts/safety-envelope",
+          "concepts/drift-detection",
+          "concepts/threat-model"
+        ]
+      },
+      {
+        "group": "Operational Guides",
+        "pages": [
+          "guides/windows-monitoring",
+          "guides/response-plans",
+          "guides/llm-caching"
+        ]
+      },
+      {
+        "group": "Reference",
+        "pages": [
+          "reference/cli",
+          "reference/event-schema",
+          "reference/storage-api"
+        ]
+      },
+      {
+        "group": "Community",
+        "pages": [
+          "community/contributing",
+          "community/security"
+        ]
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/manassanjaymishra24/Sentinel"
     }
-  ],
-  "navigation": [
-    {
-      "group": "Introduction",
-      "pages": [
-        "introduction",
-        "quickstart"
-      ]
-    },
-    {
-      "group": "Architecture & Concepts",
-      "pages": [
-        "concepts/safety-envelope",
-        "concepts/drift-detection",
-        "concepts/threat-model"
-      ]
-    },
-    {
-      "group": "Operational Guides",
-      "pages": [
-        "guides/windows-monitoring",
-        "guides/response-plans",
-        "guides/llm-caching"
-      ]
-    },
-    {
-      "group": "Reference",
-      "pages": [
-        "reference/cli",
-        "reference/event-schema",
-        "reference/storage-api"
-      ]
-    },
-    {
-      "group": "Community",
-      "pages": [
-        "community/contributing",
-        "community/security"
-      ]
-    }
-  ],
-  "footerSocials": {
-    "github": "https://github.com/manassanjaymishra24/Sentinel"
   }
 }

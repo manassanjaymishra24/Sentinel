@@ -1,0 +1,57 @@
+---
+title: "Response Plans"
+description: "Dry-run local response planning and the human approval workflow"
+---
+
+## Dry-run by default
+
+The response layer converts detection outcomes into auditable local response steps — preserving forensics, alerting an analyst, or preparing host isolation. By default, Sentinel prints **command previews** instead of executing any system change.
+
+```bash
+python -m sentinel.demo --input tests/fixtures/sample_sysmon.json
+python -m sentinel.demo --input tests/fixtures/sample_sysmon.json --response-plan response.json
+```
+
+`--execute-response` still stays in dry-run unless explicitly paired with `--allow-execute`. Disruptive actions additionally require human approval regardless of flags.
+
+## Human approval workflow
+
+```bash
+python -m sentinel.demo --response-plan response.json
+python -m sentinel.review response.json
+python -m sentinel.review response.json --approve-all --non-interactive --execute
+```
+
+## Forensics preservation
+
+The safest executable response is forensics preservation. When execution is explicitly allowed, Sentinel writes JSON snapshots under `sentinel_data/forensics` (or a custom path via `--forensics-dir`):
+
+```bash
+python -m sentinel.review response.json --approve-all --non-interactive --execute --allow-execute --forensics-dir sentinel_data/forensics
+```
+
+## Disruptive response adapters
+
+### Firewall IP blocking (Windows)
+
+Generates a reversible `New-NetFirewallRule` step with a matching `Remove-NetFirewallRule` rollback preview. Actual execution requires **all** of the following:
+
+- A generated `block_ip_windows_firewall` step
+- Human approval
+- `--execute`
+- `--allow-execute`
+- An elevated terminal with permission to modify firewall rules
+
+Without `--allow-execute`, reviewed firewall actions report `dry_run`.
+
+### Process termination
+
+Prepares `Stop-Process -Id <pid> -Force`, and only when a process ID is present and the reasoning layer recommends `kill_suspicious_process`. This action is **irreversible** and human-gated.
+
+### File quarantine
+
+Prepares a reversible `Move-Item` into `sentinel_data/quarantine` when a suspicious file path is present. Also human-gated.
+
+## Current scope
+
+Sentinel is a research prototype, not a production security appliance. Response actions are intentionally conservative — only forensics preservation writes local snapshots by default; firewall, process termination, and quarantine actions all require explicit approval and execution flags.

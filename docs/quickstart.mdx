@@ -1,0 +1,78 @@
+---
+title: "Quickstart"
+description: "Install Sentinel and run your first behavioral analysis in under 5 minutes"
+---
+
+## Installation
+
+Clone the repository and install in development mode:
+
+```bash
+git clone https://github.com/manassanjaymishra24/Sentinel.git
+cd Sentinel
+python -m venv .venv
+# Activate the virtual environment, then:
+pip install -e ".[dev]"
+```
+
+## Run the test suite
+
+Confirm your environment is set up correctly — all 56 tests should pass:
+
+```bash
+python -m pytest tests/ -v
+```
+
+## Analyze your first log file
+
+Sentinel ships with a demo CLI that ingests a log file and runs the full detection pipeline.
+
+```bash
+python -m sentinel.demo --input sample_sysmon.json
+```
+
+Supported parsers: `auto`, `sysmon`, `windows`, `auditd`, `zeek`, `cloudtrail`. JSON input can be a single object, a list of objects, or an object with `events`, `Records`, or `records` keys.
+
+### Generate a Markdown incident report
+
+```bash
+python -m sentinel.demo --input sample_sysmon.json --report incident.md
+```
+
+### Generate a dry-run response plan
+
+```bash
+python -m sentinel.demo --input sample_sysmon.json --response-plan response.json
+```
+
+### Persist incidents to SQLite
+
+```bash
+python -m sentinel.demo --input sample_sysmon.json --incident-db sentinel_data/incidents.sqlite3
+```
+
+## Optional: enable LLM-assisted reasoning
+
+Sentinel's core detection engine runs entirely offline with zero API keys. LLM reasoning is an opt-in safety net for borderline-confidence cases only.
+
+```bash
+export ANTHROPIC_API_KEY="your-api-key"   # or OPENAI_API_KEY
+python -m sentinel.demo --input sample_sysmon.json --use-llm
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Safety Envelope" href="/concepts/safety-envelope">
+    Understand how deterministic rules and optional LLM reasoning work together.
+  </Card>
+  <Card title="Drift Detection" href="/concepts/drift-detection">
+    Learn how Sentinel catches multi-week behavioral campaigns.
+  </Card>
+  <Card title="CLI Reference" href="/reference/cli">
+    Full command and flag reference.
+  </Card>
+  <Card title="Threat Model" href="/concepts/threat-model">
+    Know exactly what Sentinel does and doesn't catch.
+  </Card>
+</CardGroup>

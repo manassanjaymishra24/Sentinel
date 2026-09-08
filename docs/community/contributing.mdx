@@ -1,0 +1,26 @@
+---
+title: "Contributing"
+description: "How to set up your environment and submit a pull request"
+---
+
+Sentinel prioritizes determinism, rigorous typing, and auditability. Full setup instructions, quality gates, and PR guidelines live in [`CONTRIBUTING.md`](https://github.com/manassanjaymishra24/Sentinel/blob/main/CONTRIBUTING.md) in the repository root.
+
+## Quick summary
+
+```bash
+git clone https://github.com/manassanjaymishra24/Sentinel.git
+cd Sentinel
+python -m venv .venv
+pip install -e ".[dev]"
+```
+
+Before submitting a PR, all of the following must pass:
+
+```bash
+python -m pytest tests/ -v          # all 56+ tests
+python -m mypy sentinel/ --strict   # zero type omissions
+python -m ruff check . --fix
+python -m ruff format .
+```
+
+Looking for a place to start? Check the [`good first issue`](https://github.com/manassanjaymishra24/Sentinel/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) label — new log-source parsers are one of the highest-value contributions.

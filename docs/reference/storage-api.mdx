@@ -1,0 +1,44 @@
+---
+title: "Storage API"
+description: "SQLite incident persistence and query interface"
+---
+
+## Overview
+
+Sentinel persists incidents to SQLite by default — portable, file-based, and requiring no external database. The store records decision IDs, timestamps, involved entities, confidence scores, human-review status, serialized audit records, and approval outcomes.
+
+```python
+from sentinel.storage import IncidentStore
+
+store = IncidentStore.connect("incidents.db")
+```
+
+## Query methods
+
+| Method | Description |
+|---|---|
+| `get_incidents_by_entity(entity)` | All incidents recorded for a given entity |
+| `get_incidents_by_stage(stage)` | Filter incidents by attack stage |
+| `get_incidents_by_confidence(min_conf, max_conf)` | Filter by a confidence range |
+| `get_top_entities(limit)` | Top entities ranked by incident count |
+| `get_entity_statistics(entity)` | Detailed per-entity statistics |
+| `find_similar_incidents(tech, stage, limit)` | Similarity search across technique and attack stage |
+| `compute_entity_reputation()` | Multi-factor reputation scoring across all tracked entities |
+
+## Example
+
+```python
+from sentinel.storage import IncidentStore
+
+store = IncidentStore.connect("sentinel_data/incidents.sqlite3")
+
+top_risk_entities = store.get_top_entities(limit=10)
+reputation = store.compute_entity_reputation()
+
+for entity, score in reputation.items():
+    print(f"{entity}: {score:.2f}")
+```
+
+## Production considerations
+
+SQLite is the default for portability and zero-setup local use. For production SOC deployments at higher event volume, the storage interface is designed to be swapped for PostgreSQL or Elasticsearch — see [Contributing](/community/contributing) if you're interested in building that adapter.

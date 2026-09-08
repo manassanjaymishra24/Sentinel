@@ -1,0 +1,59 @@
+---
+title: "Drift Detection"
+description: "How Sentinel catches multi-week APT-style behavioral campaigns"
+---
+
+## The problem with isolated-event analysis
+
+Traditional SIEMs analyze events in isolation. A spike on Thursday and a spike on Friday look unrelated. Advanced Persistent Threat (APT) campaigns are specifically designed to avoid triggering isolated-event alerts by unfolding gradually — over weeks, not hours.
+
+### Example: Emotet-style progression
+
+```text
+Week 1: Process creation = 5/day   (clean baseline)
+Week 2: Process creation = 7/day   (normal variance)
+Week 3: Process creation = 12/day  (trending upward...)
+Week 4: Process creation = 45/day + T1041 Exfiltration + known-bad JA3 fingerprint
+        🚨 CAMPAIGN DETECTED
+```
+
+A traditional SIEM sees four unremarkable days. Sentinel's 4-week sliding behavioral window sees a campaign.
+
+## What Sentinel tracks across the window
+
+- **Frequency drift** — sustained deviation from an entity's baseline event rate (e.g. a 400% spike in incident rate)
+- **Technique drift** — progression across MITRE-style attack stages (e.g. `T1059 Execution` → `T1041 Exfiltration`)
+- **Confidence escalation** — low-confidence events that compound into a high-confidence pattern as the campaign ramps up
+
+## Usage
+
+```python
+from sentinel.drift import BehavioralDriftAnalyzer
+
+analyzer = BehavioralDriftAnalyzer(anomaly_threshold=0.3)
+drifts = analyzer.detect_all_drifting_entities(profiles)
+
+for entity, analysis in drifts.items():
+    print(f"{entity}: Drift Score = {analysis['score']:.2f}")
+    # e.g. host-db-prod: 2.45 (frequency 4.0 + technique 1.5)
+```
+
+## Entity reputation
+
+Drift analysis feeds a multi-factor reputation score per entity, combining:
+
+- Incident frequency (higher count → higher risk)
+- Technique diversity (more distinct techniques observed → higher risk)
+- Confidence levels (sustained high confidence → higher risk)
+- Stage progression (advancement to later attack stages → higher risk)
+
+```python
+from sentinel.storage import IncidentStore
+
+store = IncidentStore.connect("incidents.db")
+reputation = store.compute_entity_reputation()
+```
+
+## Limitations
+
+The sliding window defaults to 28 days. Campaigns diluted across a longer span, or attackers who deliberately pace actions beyond the window, can fall outside active drift memory. See the [Threat Model](/concepts/threat-model) for the full list of detection boundaries.

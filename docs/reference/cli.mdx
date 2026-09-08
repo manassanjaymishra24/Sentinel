@@ -1,0 +1,68 @@
+---
+title: "CLI Reference"
+description: "Available Sentinel commands and flags"
+---
+
+## `sentinel.demo`
+
+Analyzes a single log file through the full detection pipeline.
+
+```bash
+python -m sentinel.demo --input <file>
+```
+
+| Flag | Description |
+|---|---|
+| `--input <path>` | JSON or JSONL log file to analyze |
+| `--parser <name>` | `auto`, `sysmon`, `windows`, `auditd`, `zeek`, or `cloudtrail` |
+| `--report <path>` | Write a Markdown incident report |
+| `--response-plan <path>` | Write a dry-run response plan as JSON |
+| `--incident-db <path>` | Persist incidents to a SQLite database |
+| `--use-llm` | Enable optional LLM-assisted reasoning (requires `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`) |
+| `--execute-response` | Stays in dry-run unless combined with `--allow-execute` |
+| `--allow-execute` | Permits execution of disruptive response adapters (still requires human approval) |
+| `--forensics-dir <path>` | Custom output directory for forensics snapshots |
+
+Input JSON may be a single object, a list of objects, or an object with `events`, `Records`, or `records` keys.
+
+## `sentinel.review`
+
+Human approval CLI for generated response plans.
+
+```bash
+python -m sentinel.review <response.json> [flags]
+```
+
+| Flag | Description |
+|---|---|
+| `--approve-all` | Approve every pending action in the plan |
+| `--non-interactive` | Skip interactive prompts |
+| `--execute` | Execute approved actions (forensics only, unless `--allow-execute` is also set) |
+| `--allow-execute` | Permit disruptive adapters (firewall, process kill, quarantine) to run |
+| `--forensics-dir <path>` | Output directory for forensics snapshots |
+
+## `sentinel.monitor`
+
+Live Windows Event Log monitoring.
+
+```bash
+python -m sentinel.monitor [--once] --logs <log names...> [flags]
+```
+
+| Flag | Description |
+|---|---|
+| `--once` | Run a single polling cycle instead of continuous monitoring |
+| `--logs <names...>` | One or more Windows Event Log channels, e.g. `System "Windows PowerShell"` |
+| `--since-minutes <n>` | Look back window in minutes (used with `--once`) |
+| `--max-events <n>` | Maximum events to pull per cycle |
+| `--interval <seconds>` | Polling interval for continuous mode |
+
+## Environment variables
+
+| Variable | Purpose |
+|---|---|
+| `OPENAI_API_KEY` | Enables OpenAI as the LLM reasoning backend |
+| `ANTHROPIC_API_KEY` | Enables Claude as the LLM reasoning backend (auto-detected) |
+| `SENTINEL_LLM_TOKEN_BUDGET` | Caps total LLM token spend per run |
+| `SENTINEL_ENV` | Environment name used by logging configuration |
+| `LOG_LEVEL` | Logging verbosity |

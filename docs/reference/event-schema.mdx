@@ -1,0 +1,35 @@
+---
+title: "Event Schema"
+description: "sentinel.events.UnifiedEvent fields and source parser mappings"
+---
+
+## Why a unified schema
+
+Sentinel ingests telemetry from multiple, structurally different log sources — Windows (Sysmon, Event Log), Linux (auditd), cloud (CloudTrail), and network (Zeek). Every parser normalizes its source format into a single unified event schema before it reaches the perception and reasoning layers, so downstream analytics (drift detection, reputation scoring) never need to know which parser produced an event.
+
+## Supported source parsers
+
+| Parser name | Source |
+|---|---|
+| `sysmon` | Windows Sysmon (`Microsoft-Windows-Sysmon/Operational`) |
+| `windows` | Windows Event Log (general channels, e.g. `System`) |
+| `auditd` | Linux auditd |
+| `zeek` | Zeek network metadata |
+| `cloudtrail` | AWS CloudTrail |
+| `auto` | Attempts to detect the correct parser from the input structure |
+
+## Input formats accepted
+
+- A single JSON object
+- A list of JSON objects
+- A JSON object containing an `events`, `Records`, or `records` key (matches common CloudTrail/Sysmon export shapes)
+
+## Adding a new parser
+
+New log source support is one of the best first contributions to Sentinel — see the [`New Parser Request`](https://github.com/manassanjaymishra24/Sentinel/issues/new?template=parser_request.md) issue template for the expected field mapping when proposing one:
+
+- Timestamp
+- Source entity / IP
+- Process / action
+
+Parsers live in `sentinel.events` alongside the unified schema itself.

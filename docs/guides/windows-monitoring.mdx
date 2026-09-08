@@ -1,0 +1,50 @@
+---
+title: "Windows Monitoring"
+description: "Live telemetry ingestion from local Windows Event Logs"
+---
+
+## Overview
+
+Sentinel can read recent local Windows Event Logs via PowerShell's `Get-WinEvent`, normalize the events into its unified schema, run the full reasoning pipeline, and print a dry-run response plan — either as a single pass or continuously.
+
+## Run a single polling cycle
+
+```powershell
+python -m sentinel.monitor --once --logs System "Windows PowerShell" --since-minutes 10 --max-events 20
+```
+
+## Run continuously
+
+```powershell
+python -m sentinel.monitor --logs System "Windows PowerShell" --interval 30
+```
+
+<Note>
+Some logs — especially `Security` — may require an elevated terminal. Logs that are missing or restricted are reported as read errors and skipped rather than failing the whole run.
+</Note>
+
+## Sysmon enrichment
+
+For `Microsoft-Windows-Sysmon/Operational`, Sentinel expands Sysmon event messages and scores common suspicious behaviors, including:
+
+- PowerShell encoded commands
+- `cmd.exe` spawning PowerShell
+- Downloads via `certutil`, `curl`, `wget`, or `bitsadmin`
+- LSASS process access
+- Autorun registry writes
+- Archive staging
+- Public outbound connections
+- Suspicious DNS patterns
+
+## Network metadata scoring
+
+For Zeek-style network records, Sentinel can additionally flag:
+
+- DNS tunneling-like long or encoded labels
+- Large outbound transfer imbalance
+- Long-lived sessions
+- Known suspicious JA3 TLS fingerprints (e.g. Mirai, Emotet C2 signatures)
+
+## No external dependencies required
+
+The monitoring pipeline uses a small in-memory MITRE-like knowledge graph and deterministic reasoning rules, so it works without Neo4j, Kafka, LangGraph, or an LLM API key. Production integrations can be layered in behind the existing adapter classes.

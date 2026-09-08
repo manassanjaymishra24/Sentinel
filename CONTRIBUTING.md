@@ -1,5 +1,7 @@
 # Contributing to Sentinel
 
+Thank you for helping harden Sentinel. We prioritize determinism, rigorous typing, and auditability.
+
 ## Before You Start
 
 - Search existing issues and pull requests
@@ -31,41 +33,43 @@
 - Use pytest fixtures for reusable test data
 - Mock LLM providers to avoid real API calls in CI
 - Aim for 80%+ code coverage
+- Any changes to reasoning logic require accompanying test fixtures in `tests/fixtures/`
 
 ## Pull Request Process
 
 1. **Create feature branch:**
-   ```bash
+```bash
    git checkout -b feature/your-feature
-   ```
+```
 
 2. **Add tests and run validation:**
-   ```bash
+```bash
    pytest tests/ -v
    mypy sentinel/ --strict
    ruff check sentinel/
    ruff format sentinel/
-   ```
+```
 
 3. **Commit with conventional style:**
-   ```bash
+```bash
    git commit -m "feat: add new detection capability"
    # Types: feat, fix, docs, refactor, perf, test, chore
-   ```
+```
 
 4. **Open PR with description:**
    - What problem does this solve?
    - How was it tested?
    - Any breaking changes?
    - Screenshots of output if UI changes
+   - Keep PRs atomic and linked to an existing tracking issue
 
 5. **Address review feedback** and merge
 
 ## Development Setup
 
 ```bash
-git clone https://github.com/yourusername/sentinel.git
-cd sentinel
+git clone https://github.com/manassanjaymishra24/Sentinel.git
+cd Sentinel
 pip install -e ".[dev]"
 pytest tests/ -v  # Should pass all 56 tests
 ```

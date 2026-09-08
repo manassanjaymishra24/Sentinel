@@ -1,0 +1,22 @@
+---
+title: "Introduction"
+description: "Autonomous behavioral threat detection for multi-week APT campaigns"
+---
+
+# 🛡️ Sentinel
+
+Traditional SIEM architectures examine security events in **isolation**. Modern Advanced Persistent Threats (APTs) intentionally split activities over **weeks** to blend into background noise.
+
+```text
+Week 1-3: Process creation 5→8→12/day (normal variance)
+Week 4:   Process creation reaches 45/day + T1041 Exfiltration (🚨 DRIFT DETECTED)
+```
+
+Sentinel operates on a 4-week sliding behavioral window that exposes these low-and-slow campaigns without vendor lock-in or recurring SaaS ingestion costs.
+
+## Core Philosophy: Multi-Layer Safety Envelope
+
+1. **Deterministic by Default:** 95%+ of decisions are made by rule engines and anomaly baselines.
+2. **LLM as an Auxiliary Reasoner:** Models (GPT-4o-mini or Claude 3.5 Sonnet) are only triggered for borderline confidence scores.
+3. **Aggressive Response Caching:** Common telemetry patterns resolve from cache, preventing redundant LLM queries and trimming operational overhead by 80-90%.
+4. **Guarded Local Execution:** All destructive actions require explicit approval flags and human authorization.

@@ -1,0 +1,26 @@
+---
+title: "Detection Boundaries & Threat Model"
+description: "Explicit constraints and operational limits of Sentinel"
+---
+
+# Threat Model
+
+Sentinel does not replace endpoint detection agents (EDRs) or firewalls; it acts as a behavioral analytics and correlation engine.
+
+## Detection Constraints
+
+### Evasion via Kernel Disablement
+
+If an attacker unloads ETW tracing or suspends Windows Event Logging locally, Sentinel will not receive data to correlate. Heartbeat gaps must be monitored upstream.
+
+### Extended Low-and-Slow Attack Windows
+
+Sentinel's sliding memory window is configured to 28 days by default. Activities spaced months apart will not trigger correlation without custom window overrides:
+
+```bash
+python -m sentinel.demo --drift-window-days 90
+```
+
+### Prompt Hardening
+
+Telemetry forwarded to LLM reasoning endpoints is stripped of execution metadata and enclosed in strict JSON boundaries to prevent prompt injections embedded in process command lines.

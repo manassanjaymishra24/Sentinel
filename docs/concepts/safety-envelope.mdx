@@ -1,0 +1,61 @@
+---
+title: "Safety Envelope"
+description: "How deterministic rules and optional LLM reasoning stay bounded"
+---
+
+## Core principle
+
+The LLM is an optional safety net, not the core engine. Deterministic rules make the primary decision in the large majority of cases; a language model is only consulted for genuinely borderline confidence scores.
+
+```text
+EVENT INGESTION
+      ↓
+PERCEPTION LAYER (feature extraction, anomaly scoring)
+      ↓
+REASONING LAYER — Safety Envelope
+├─ Deterministic: attack-stage classification (primary, ~95% of cases)
+├─ LLM Optional: Claude / OpenAI for uncertain cases (~5% of cases)
+├─ Defense: prompt-injection input sanitization + output validation
+└─ Cost Control: token budgeting + response caching
+      ↓
+ANALYTICS LAYER (drift detection, reputation scoring)
+      ↓
+OUTPUT (incidents, reports, dry-run response plans)
+```
+
+## Why deterministic-first
+
+Traditional ML-only or LLM-only detection pipelines are hard to audit and expensive to run at log volume. Sentinel inverts that: the deterministic engine handles the bulk of classification using rule-based attack-stage logic, and only escalates to an LLM when the deterministic confidence score falls in an ambiguous middle range.
+
+This keeps Sentinel usable with **zero API keys** — the full detection pipeline works on Python + scikit-learn alone. LLM assistance is additive, not required.
+
+## Defense against prompt injection
+
+Because raw log data (process command lines, file paths, DNS queries) can contain attacker-controlled text, Sentinel treats all LLM input as untrusted:
+
+- Log content is isolated into strict schema blocks before being passed to the model — it is never concatenated into a freeform instruction-style prompt.
+- The LLM must return structured JSON; outputs that fail validation or diverge too far from the deterministic baseline are rejected outright.
+- The deterministic engine (`sentinel.reasoning`) remains the final decision boundary — the LLM cannot override it, only supplement it.
+
+See the [Threat Model](/concepts/threat-model) page for the specific injection scenario this defends against.
+
+## Enabling LLM reasoning
+
+```bash
+# OpenAI
+export OPENAI_API_KEY="your-api-key"
+python -m sentinel.demo --input sample_sysmon.json --use-llm
+
+# Anthropic Claude
+export ANTHROPIC_API_KEY="your-api-key"
+python -m sentinel.demo --input sample_sysmon.json --use-llm
+```
+
+Configure a token budget to bound cost:
+
+```bash
+export SENTINEL_LLM_TOKEN_BUDGET="10000"
+python -m sentinel.demo --use-llm
+```
+
+See [LLM Cost Control & Caching](/guides/llm-caching) for how caching reduces per-event LLM cost by 80–90%.

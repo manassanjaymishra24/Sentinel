@@ -596,3 +596,27 @@ A: Windows (Sysmon, Event Logs, PowerShell), Linux (auditd), Cloud (CloudTrail),
 **Q: How is incident data stored?**  
 A: SQLite by default (portable, file-based, no external DB required). Swap for PostgreSQL/Elasticsearch for production.
 
+## Roadmap & Community
+
+Sentinel is expanding from a research framework to a distributed SOC detection engine.
+
+### Milestones
+- [x] Multi-format parser engine (Sysmon, CloudTrail, Zeek, Auditd)
+- [x] Long-term behavioral drift analytics (4-week tracking)
+- [x] Prompt-injection hardened LLM envelope with 90% cache reuse
+- [ ] **v0.2.0:** Streaming Kafka ingestion worker (`sentinel.stream`)
+- [ ] **v0.2.0:** Neo4j dynamic entity graph synchronization
+- [ ] **v0.3.0:** eBPF raw socket observer for native Linux live monitoring
+
+Looking to contribute? Check out our [`good first issue`](https://github.com/manassanjaymishra24/Sentinel/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) label.
+
+---
+
+## Governance & Security
+
+* **Security Policy:** Read our [SECURITY.md](SECURITY.md) for vulnerability disclosure guidelines.
+* **Threat Model:** Review [THREAT_MODEL.md](THREAT_MODEL.md) for explicit detection boundaries and architectural trade-offs.
+* **Contributing:** See [CONTRIBUTING.md](CONTRIBUTING.md) to set up your environment and run strict checks.
+* **Code of Conduct:** We adhere to the Contributor Covenant standards in [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+
+
